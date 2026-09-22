@@ -26,6 +26,12 @@ kubectl --context "${ctx}" get clusterrole kindnet -o yaml                    > 
 kubectl --context "${ctx}" get clusterrolebinding kindnet -o yaml             > "${tmp}/03-crb.yaml"
 kubectl --context "${ctx}" -n kube-system get daemonset kindnet -o yaml       > "${tmp}/04-ds.yaml"
 
+# kindnet is told where the API server is through CONTROL_PLANE_ENDPOINT, and
+# the extracted value names the throwaway cluster's own control plane. Carrying
+# that into another cluster points kindnet at a host that does not exist, so it
+# becomes a placeholder that the test substitutes.
+sed -i'' -e 's#value: .*-control-plane:6443#value: __CONTROL_PLANE_ENDPOINT__#' "${tmp}/04-ds.yaml"
+
 {
   echo "# kindnet, extracted from a kind cluster by hack/extract-kindnet.sh."
   echo "# Vendored so the end-to-end test needs no network: the kindnetd image is"

@@ -56,6 +56,36 @@ collect_diagnostics() {
     KUBECONFIG="${STATE}/bootstrap.kubeconfig" kubectl -n kgenesis-system logs deploy/kgenesis-controller-manager --tail=60 2>&1 | tail -60 || true
   fi
 
+  # Once the control plane answers, the interesting failures move into the
+  # cluster being built. Nothing else in this test looks there.
+  if [[ -f "${STATE}/e2e.kubeconfig" ]]; then
+    echo
+    info "--- workload cluster: nodes"
+    KUBECONFIG="${STATE}/e2e.kubeconfig" kubectl get nodes -o wide 2>&1 | sed 's/^/    /' || true
+
+    echo
+    info "--- workload cluster: why the nodes are not ready"
+    KUBECONFIG="${STATE}/e2e.kubeconfig" kubectl get nodes \
+      -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{range .status.conditions[*]}  {.type}={.status} {.reason}: {.message}{"\n"}{end}{end}' \
+      2>&1 | sed 's/^/    /' || true
+
+    echo
+    info "--- workload cluster: kube-system"
+    KUBECONFIG="${STATE}/e2e.kubeconfig" kubectl -n kube-system get pods -o wide 2>&1 | sed 's/^/    /' || true
+
+    echo
+    info "--- workload cluster: CNI"
+    KUBECONFIG="${STATE}/e2e.kubeconfig" kubectl -n kube-system describe daemonset kindnet 2>&1 |
+      sed -n '/Events:/,$p' | sed 's/^/    /' || true
+    KUBECONFIG="${STATE}/e2e.kubeconfig" kubectl -n kube-system logs daemonset/kindnet --tail=40 2>&1 |
+      sed 's/^/    /' || true
+
+    echo
+    info "--- workload cluster: recent events"
+    KUBECONFIG="${STATE}/e2e.kubeconfig" kubectl get events -A \
+      --sort-by=.lastTimestamp 2>&1 | tail -25 | sed 's/^/    /' || true
+  fi
+
   # Everything below has to be collected here, before cleanup: the containers
   # are gone by the time any later CI step could look at them, and a kubeadm
   # failure is almost always explained by the kubelet rather than by kubeadm.
@@ -79,6 +109,11 @@ collect_diagnostics() {
     echo
     info "--- ${host}: containers"
     docker exec "${host}" crictl ps -a 2>&1 | sed 's/^/    /' || true
+
+    echo
+    info "--- ${host}: CNI on disk"
+    docker exec "${host}" sh -c 'ls -l /etc/cni/net.d 2>&1; ls /opt/cni/bin 2>&1 | head -20' 2>&1 |
+      sed 's/^/    /' || true
 
     echo
     info "--- ${host}: cgroup and kernel facts"
@@ -257,9 +292,21 @@ readonly ROUTABLE
 # kgenesis installs the CNI from wherever the CLI runs, so it is only configured
 # when this machine can reach the cluster being built.
 if [[ "${ROUTABLE}" == "1" ]]; then
+  # kindnet has to be told the real API server address; see the note in the
+  # vendored manifest.
+  CNI_MANIFEST="${WORKDIR}/kindnet.yaml"
+  sed "s#__CONTROL_PLANE_ENDPOINT__#${CP_ENDPOINT}:6443#" \
+    "${ROOT}/test/e2e/kindnet.yaml" > "${CNI_MANIFEST}"
+
+  # An unsubstituted placeholder would install a CNI that cannot reach the API
+  # server, and the only symptom would be nodes that never turn Ready.
+  if grep -q '__CONTROL_PLANE_ENDPOINT__' "${CNI_MANIFEST}"; then
+    fail "the CNI manifest still has an unsubstituted placeholder"
+  fi
+
   CNI_BLOCK="  cni:
     manifests:
-      - ${ROOT}/test/e2e/kindnet.yaml"
+      - ${CNI_MANIFEST}"
 else
   CNI_BLOCK="  cni:
     manifests: []"

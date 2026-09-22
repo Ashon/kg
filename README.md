@@ -59,6 +59,18 @@ On every host:
 - SSH as root, by key or password
 - No existing kubeadm state (`kg inventory check` flags leftovers)
 
+The bootstrap prepares two things itself and stops with a clear message when it
+cannot, rather than letting kubeadm fail several minutes later wearing someone
+else's name:
+
+- **Swap off.** Every active area in `/proc/swaps` is disabled and the
+  `/etc/fstab` entries commented out. `swapoff -a` alone would miss a swapfile
+  enabled by hand, zram or systemd-swap, and kubelet refuses to start with any
+  of it on.
+- **Bridge netfilter.** `br_netfilter` is loaded if it is a module, and its
+  presence is then verified. Without it kube-proxy's rules never see pod
+  traffic, and `sysctl --system` reports success either way.
+
 ## Getting started
 
 The CLI installs as `kgenesis` with `kg` as a short alias beside it. The two are
