@@ -316,6 +316,11 @@ func TestPreflightCommandsSurviveRendering(t *testing.T) {
 	got := string(script)
 
 	for _, want := range []string{
+		// Every active swap area, not just what /etc/fstab lists, and then a
+		// check: kubelet will not start while any of it is left on.
+		"swapoff -a || true",
+		"/proc/swaps",
+		`swapoff "$area"`,
 		// Tolerant: these modules may be built in or already loaded, in which
 		// case modprobe has no file to find.
 		"modprobe overlay 2>/dev/null || true",

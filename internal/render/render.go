@@ -376,9 +376,16 @@ func nodeTaints(taints []config.Taint) *[]corev1.Taint {
 // must not be written as a hard failure.
 func nodePreflightCommands() []string {
 	return []string{
-		// kubelet refuses to start while swap is on. swapoff is a no-op when
-		// there is none.
-		"swapoff -a && sed -ri 's/^([^#].*\\sswap\\s)/#\\1/' /etc/fstab",
+		// kubelet refuses to start while swap is on, and `swapoff -a` only covers
+		// what /etc/fstab lists. A swapfile enabled by hand, zram or systemd-swap
+		// survives it, and nothing says so: the failure turns up minutes later as
+		// a kubelet that never becomes healthy, which reads like a cgroup problem.
+		"swapoff -a || true",
+		"awk 'NR > 1 { print $1 }' /proc/swaps | while read -r area; do swapoff \"$area\" || true; done",
+		"if [ -f /etc/fstab ]; then sed -ri 's/^([^#].*\\sswap\\s)/#\\1/' /etc/fstab; fi",
+		"if [ \"$(awk 'NR > 1' /proc/swaps | wc -l)\" -ne 0 ]; then " +
+			"echo 'kgenesis: swap is still active, and kubelet refuses to start with it on. " +
+			"Disable it on this host and retry.' >&2; cat /proc/swaps >&2; exit 1; fi",
 
 		// Both may be built into the kernel or already loaded, in which case
 		// modprobe has no module file to find and fails despite the feature being
