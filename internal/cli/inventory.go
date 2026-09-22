@@ -132,11 +132,22 @@ func checkHost(ctx context.Context, host config.HostConfig) checkResult {
 		return result
 	}
 
-	// A host that already carries kubeadm state will fail preflight during a join,
+	// A host that has already been through kubeadm will fail preflight on a join,
 	// so it is worth calling out before anything is applied.
-	if res, err := conn.Run(ctx, "if [ -d /etc/kubernetes ] || [ -d /var/lib/etcd ]; then echo dirty; fi"); err == nil {
-		if strings.TrimSpace(res.Stdout) == "dirty" {
-			result.warning = "already carries kubeadm state (/etc/kubernetes or /var/lib/etcd)"
+	//
+	// The test is for what kubeadm writes, not for what its packages create.
+	// /etc/kubernetes and an empty /var/lib/etcd are present on every host that
+	// merely has kubeadm installed, which is all of them, and a warning that
+	// always fires is one nobody reads.
+	const dirtyCheck = `if ls /etc/kubernetes/*.conf >/dev/null 2>&1; then echo conf; ` +
+		`elif [ -n "$(ls -A /var/lib/etcd 2>/dev/null)" ]; then echo etcd; fi`
+
+	if res, err := conn.Run(ctx, dirtyCheck); err == nil {
+		switch strings.TrimSpace(res.Stdout) {
+		case "conf":
+			result.warning = "kubeadm has already run here; /etc/kubernetes holds its kubeconfigs"
+		case "etcd":
+			result.warning = "/var/lib/etcd is not empty, so this host held an etcd member"
 		}
 	}
 	if info.ContainerRuntime == "" {
@@ -202,6 +213,14 @@ func newInventoryListCommand(opts *Options) *cobra.Command {
 			cfg, err := opts.Load()
 			if err != nil {
 				return err
+			}
+
+			if !opts.bootstrapClusterExists() {
+				fmt.Fprintf(cmd.OutOrStdout(),
+					"The pool is not loaded yet; %s puts it in the bootstrap cluster.\n\n"+
+						"To check the hosts themselves right now, without one:\n\n  %s\n",
+					invoke("init"), invoke("inventory check"))
+				return nil
 			}
 
 			c, err := kube.NewClient(opts.BootstrapKubeconfig())

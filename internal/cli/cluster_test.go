@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -149,5 +150,24 @@ func TestSummaryReadyRequiresMachines(t *testing.T) {
 				t.Errorf("ready() = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// "Nothing has been built yet" is an answer to `cluster status`, not a failure
+// of it. Reporting it as an error makes a normal starting point look broken,
+// and makes the command useless in a script that checks where things stand.
+func TestBootstrapClusterExists(t *testing.T) {
+	dir := t.TempDir()
+	opts := &Options{StateDir: dir}
+
+	if opts.bootstrapClusterExists() {
+		t.Error("an empty state directory should not look initialised")
+	}
+
+	if err := os.WriteFile(opts.BootstrapKubeconfig(), []byte("apiVersion: v1\n"), 0o600); err != nil {
+		t.Fatalf("write kubeconfig: %v", err)
+	}
+	if !opts.bootstrapClusterExists() {
+		t.Error("a state directory holding a bootstrap kubeconfig should look initialised")
 	}
 }

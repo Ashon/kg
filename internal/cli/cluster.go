@@ -228,17 +228,16 @@ func clusterSummary(ctx context.Context, c client.Client, cfg *config.Config) (*
 			s.machinesRunning++
 		}
 		if _, isControlPlane := m.Labels[clusterv1.MachineControlPlaneLabel]; isControlPlane {
-			s.controlPlaneDesired++
 			if m.Status.Phase == string(clusterv1.MachinePhaseRunning) {
 				s.controlPlaneReady++
 			}
 		}
 	}
-	// Before any Machine exists, fall back to what was asked for so the first
-	// poll prints 0/3 rather than 0/0.
-	if s.controlPlaneDesired == 0 {
-		s.controlPlaneDesired = cfg.Cluster.ControlPlaneReplicas
-	}
+
+	// What was asked for, not what exists yet. The control plane provider creates
+	// its machines one at a time, so counting them would report a shrinking
+	// target - 0/3 then 0/1 - as though fewer had been wanted all along.
+	s.controlPlaneDesired = cfg.Cluster.ControlPlaneReplicas
 
 	hosts := &infrav1.HostList{}
 	if err := c.List(ctx, hosts, client.InNamespace(cfg.Cluster.Namespace)); err != nil {
@@ -293,6 +292,14 @@ func newClusterStatusCommand(opts *Options) *cobra.Command {
 			cfg, err := opts.Load()
 			if err != nil {
 				return err
+			}
+
+			if !opts.bootstrapClusterExists() {
+				out := cmd.OutOrStdout()
+				fmt.Fprintf(out, "Cluster %s has not been built yet.\n\n", cfg.Cluster.Name)
+				fmt.Fprintf(out, "  %sbring up the bootstrap cluster and the providers\n", pad(invoke("init")))
+				fmt.Fprintf(out, "  %sstamp out %s\n", pad(invoke("cluster create")), cfg.Cluster.Name)
+				return nil
 			}
 
 			c, err := kube.NewClient(opts.BootstrapKubeconfig())
