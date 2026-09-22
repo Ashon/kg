@@ -122,6 +122,18 @@ e2e: ## Build a real cluster from container hosts and pivot it (needs Docker)
 e2e-keep: ## Same as e2e, but leave the clusters and hosts running for inspection
 	KEEP=1 ./test/e2e/run.sh
 
+.PHONY: vm-test
+vm-test: ## Build a cluster on real VMs: 3 control planes with a VIP, 2 workers (macOS, needs lima)
+	./test/vm/run.sh
+
+.PHONY: vm-test-keep
+vm-test-keep: ## Same as vm-test, but leave the VMs running for inspection
+	KEEP=1 ./test/vm/run.sh
+
+.PHONY: vm-test-reuse
+vm-test-reuse: ## Same as vm-test against the VMs already running, skipping provisioning
+	REUSE=1 ./test/vm/run.sh
+
 .PHONY: e2e-cni-manifest
 e2e-cni-manifest: ## Re-extract the vendored kindnet manifest the e2e test installs
 	./hack/extract-kindnet.sh

@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Ashon
+# SPDX-License-Identifier: MIT
+
+# A Lima VM standing in for a pre-provisioned host, for the virtual machine
+# end-to-end test.
+#
+# Unlike the container-based test, this is a real machine: its own kernel, its
+# own systemd, its own network stack. That is what makes it worth running, since
+# it covers what containers sharing a kernel cannot - etcd quorum across three
+# control planes, and a VIP that moves between them.
+vmType: vz
+arch: aarch64
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: aarch64
+
+cpus: 2
+memory: "2GiB"
+disk: "12GiB"
+
+# Lima's shared network, served by socket_vmnet. It is the only mode that is
+# both reachable from the Mac and able to carry traffic between the VMs:
+#
+#   vzNAT     the Mac reaches each VM, but the VMs cannot ARP one another, so
+#             kubeadm join and kube-vip have nothing to work with
+#   user-v2   the VMs reach one another, but the Mac cannot see the network at
+#             all, so it cannot be the genesis node
+#   shared    both, which is what lets kgenesis run from the Mac
+networks:
+  - lima: shared
+
+mountType: virtiofs
+mounts: []
+
+containerd:
+  system: false
+  user: false
+
+ssh:
+  loadDotSSHPubKeys: false

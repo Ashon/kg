@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 Ashon
+# SPDX-License-Identifier: MIT
+
+# The genesis node: a VM on the same segment as the hosts, running Docker so
+# kgenesis can bring up its kind bootstrap cluster.
+#
+# It cannot be the Mac running this test. Docker Desktop's VM does not route to
+# the host's vmnet segment, so a controller inside kind there cannot reach the
+# host VMs. Putting the genesis node on the segment is also what a real one
+# looks like.
+vmType: vz
+arch: aarch64
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: aarch64
+
+cpus: 3
+memory: "4GiB"
+disk: "20GiB"
+
+# Lima's shared network, served by socket_vmnet. It is the only mode that is
+# both reachable from the Mac and able to carry traffic between the VMs:
+#
+#   vzNAT     the Mac reaches each VM, but the VMs cannot ARP one another, so
+#             kubeadm join and kube-vip have nothing to work with
+#   user-v2   the VMs reach one another, but the Mac cannot see the network at
+#             all, so it cannot be the genesis node
+#   shared    both, which is what lets kgenesis run from the Mac
+networks:
+  - lima: shared
+
+mountType: virtiofs
+mounts:
+  - location: "{{.Dir}}/work"
+    writable: true
+
+containerd:
+  system: false
+  user: false
+
+ssh:
+  loadDotSSHPubKeys: false

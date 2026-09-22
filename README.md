@@ -78,8 +78,8 @@ the same binary, and every hint the CLI prints uses whichever name you typed, so
 you can paste its suggestions straight back.
 
 ```console
-$ kg config init            # write a starter kgenesis.yaml
-$ $EDITOR kgenesis.yaml     # fill in hosts and the control plane VIP
+$ kg config init            # write a starter ~/.kg/config
+$ $EDITOR ~/.kg/config      # fill in hosts and the control plane VIP
 $ kg config validate        # check it without contacting anything
 $ kg inventory check        # connect to every host and report
 $ kg init                   # bootstrap cluster + providers + inventory
@@ -87,11 +87,18 @@ $ kg cluster create         # stamp out the cluster and wait
 $ kg pivot                  # hand over management, drop the genesis node
 ```
 
+The configuration is read from `~/.kg/config` unless `--config` or
+`KGENESIS_CONFIG` says otherwise, so the commands above work from any directory.
+Set `KGENESIS_CONFIG` to point a shell at one fleet among several, the way
+`KUBECONFIG` does.
+
 `inventory check` is worth running first. It needs nothing but the config file,
 and a host that fails there would otherwise fail much later, part way through a
 rollout.
 
 ## Configuration
+
+`~/.kg/config`, in YAML:
 
 ```yaml
 apiVersion: kgenesis.io/v1alpha1
@@ -243,8 +250,10 @@ operator has to resolve.
 | `pivot`                    | Move management to the cluster, delete kind         |
 | `reset`                    | Delete the bootstrap cluster only                   |
 
-Kubeconfigs live under `~/.kgenesis` rather than `~/.kube`, so bootstrapping
-never disturbs the contexts you already have. Override with `--state-dir`.
+Everything kgenesis keeps lives under `~/.kg`: the configuration, the bootstrap
+cluster's kubeconfig, and the workload cluster's. Keeping the kubeconfigs out of
+`~/.kube` means bootstrapping never disturbs the contexts you already have.
+Override with `--state-dir`.
 
 ## Development
 
