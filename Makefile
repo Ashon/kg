@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Ashon
+# SPDX-License-Identifier: MIT
+
 # kgenesis - build, generate and test targets.
 
 SHELL := /usr/bin/env bash
@@ -35,7 +38,7 @@ help: ## Show this help
 
 .PHONY: generate
 generate: ## Regenerate deepcopy code, CRDs and RBAC
-	go tool controller-gen object paths=./api/...
+	go tool controller-gen object:headerFile=hack/boilerplate.go.txt paths=./api/...
 	go tool controller-gen crd paths=./api/... output:crd:artifacts:config=config/crd
 	go tool controller-gen rbac:roleName=kgenesis-manager-role paths=./internal/controller/... \
 	  output:rbac:artifacts:config=config/rbac
@@ -44,6 +47,10 @@ generate: ## Regenerate deepcopy code, CRDs and RBAC
 .PHONY: components
 components: ## Rebuild the provider manifest embedded in the CLI
 	./hack/build-components.sh
+
+.PHONY: license-headers
+license-headers: ## Add the SPDX header to any file kgenesis owns that lacks one
+	./hack/license-headers.sh --fix
 
 .PHONY: fmt
 fmt: ## Format the source
@@ -63,7 +70,8 @@ test: ## Run the unit tests
 GENERATED := api/v1alpha1/zz_generated.deepcopy.go config/crd config/rbac internal/assets
 
 .PHONY: verify
-verify: generate fmt ## Fail when generated files are out of date
+verify: generate fmt ## Fail when generated files or license headers are out of date
+	./hack/license-headers.sh
 	@if ! git diff --quiet -- $(GENERATED); then \
 	  echo "Generated files are out of date. Run 'make generate' and commit the result:"; \
 	  git --no-pager diff --stat -- $(GENERATED); \

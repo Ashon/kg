@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package cloudinit turns the cloud-config CABPK produces into a single bash
 // script that kgenesis executes over SSH.
 //

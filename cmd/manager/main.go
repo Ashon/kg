@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Command manager runs the kgenesis infrastructure provider controllers.
 //
 // It is deployed into the bootstrap cluster by `kgenesis init` and moves to the

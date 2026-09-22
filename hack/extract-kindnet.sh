@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Ashon
+# SPDX-License-Identifier: MIT
+
 # Extracts kindnet from a throwaway kind cluster into test/e2e/kindnet.yaml.
 #
 # The end-to-end test needs a CNI for the cluster it builds. kindnet suits it
@@ -33,7 +36,12 @@ kubectl --context "${ctx}" -n kube-system get daemonset kindnet -o yaml       > 
 sed -i'' -e 's#value: .*-control-plane:6443#value: __CONTROL_PLANE_ENDPOINT__#' "${tmp}/04-ds.yaml"
 
 {
-  echo "# kindnet, extracted from a kind cluster by hack/extract-kindnet.sh."
+  echo "# SPDX-FileCopyrightText: The Kubernetes Authors"
+  echo "# SPDX-License-Identifier: Apache-2.0"
+  echo "#"
+  echo "# kindnet, extracted from a kind cluster by hack/extract-kindnet.sh. It comes"
+  echo "# from sigs.k8s.io/kind and stays under kind's Apache 2.0 licence; kgenesis"
+  echo "# vendors it for the end-to-end test and does not relicense it."
   echo "# Vendored so the end-to-end test needs no network: the kindnetd image is"
   echo "# already inside the kindest/node image the fake hosts are built from."
   echo "# Source image: ${node_image}"

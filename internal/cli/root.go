@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package cli implements the kgenesis command tree.
 package cli
 

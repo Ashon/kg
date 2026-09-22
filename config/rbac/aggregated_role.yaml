@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Ashon
+# SPDX-License-Identifier: MIT
 # Cluster API's own manager binds to an aggregated ClusterRole that collects every
 # role labelled cluster.x-k8s.io/aggregate-to-manager. Without this, the core
 # controllers cannot watch this provider's resources and a Cluster never leaves

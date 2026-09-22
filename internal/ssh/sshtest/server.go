@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package sshtest provides an in-process SSH server for tests, so code that
 // talks to hosts can be exercised without a real machine or a container.
 package sshtest

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package v1alpha1 contains the kgenesis infrastructure provider API types.
 //
 // The provider implements the Cluster API v1beta2 infrastructure contract for

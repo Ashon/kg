@@ -338,7 +338,13 @@ install the wrong thing on a genesis node without anything failing until
 
 MIT. See [LICENSE](LICENSE).
 
+Every file kgenesis owns carries an SPDX header, in the form the REUSE
+specification defines, so the licence is machine readable rather than a prose
+notice somebody has to interpret. `make verify` fails when one is missing.
+
 kgenesis builds on Cluster API and its kubeadm bootstrap and control plane
 providers, which are Apache 2.0, and it installs cert-manager, a CNI you supply
 and optionally kube-vip into the clusters it creates. Those keep their own
-licences; nothing here relicenses them.
+licences; nothing here relicenses them. One file is vendored rather than
+referenced: `test/e2e/kindnet.yaml` comes from kind and carries kind's Apache
+2.0 header, not this project's.

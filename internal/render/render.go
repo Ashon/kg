@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package render turns a kgenesis.yaml into the Cluster API objects that
 // describe the target cluster, plus the Host pool and SSH secrets the kgenesis
 // infrastructure provider draws from.

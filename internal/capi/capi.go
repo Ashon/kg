@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package capi drives Cluster API through the clusterctl library, so kgenesis
 // does not require a clusterctl binary on the genesis node.
 package capi

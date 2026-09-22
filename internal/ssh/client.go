@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package ssh is the transport kgenesis uses to reach pre-provisioned hosts:
 // probing them, pushing bootstrap data and resetting them on release.
 package ssh

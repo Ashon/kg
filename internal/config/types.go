@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package config defines the kgenesis.yaml file: the single input a genesis node
 // needs to stamp a cluster out of a pool of pre-provisioned hosts.
 package config

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Ashon
+# SPDX-License-Identifier: MIT
+
 # End-to-end test: build a real Kubernetes cluster with kgenesis and take it
 # through a pivot.
 #

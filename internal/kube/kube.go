@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package kube holds the small client helpers the CLI needs: building a typed
 // client for a kubeconfig, applying rendered objects and serialising them.
 package kube

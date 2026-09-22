@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package provisioner runs the bootstrap script on a host and reports on it.
 //
 // kubeadm init can take minutes, far longer than a reconcile should block for.

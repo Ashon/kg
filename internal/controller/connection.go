@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package controller implements the kgenesis infrastructure provider: it claims
 // pre-provisioned Hosts for Cluster API Machines and bootstraps them over SSH.
 package controller

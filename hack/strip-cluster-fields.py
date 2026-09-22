@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Ashon
+# SPDX-License-Identifier: MIT
+
 """Strip server-populated fields so an exported object can be applied elsewhere."""
 
 import sys

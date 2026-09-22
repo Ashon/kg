@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Ashon
+// SPDX-License-Identifier: MIT
+
 // Package bootstrap manages the ephemeral management cluster that runs on the
 // genesis node. It exists only long enough to stamp out the real cluster and is
 // thrown away after `kgenesis pivot`.
