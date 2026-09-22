@@ -128,6 +128,13 @@ hosts:
 `kg config validate` reports every problem at once, so a broken inventory
 takes one round trip to fix rather than one per host.
 
+Two escape hatches exist for what kgenesis does not model.
+`cluster.preKubeadmCommands` and `cluster.postKubeadmCommands` run on every node
+around kubeadm, for a vendor agent, storage setup, NIC tuning, or an extra
+kubeadm configuration document. `cluster.ignorePreflightErrors` downgrades
+kubeadm checks that do not apply to your hardware; every entry is a check nobody
+will see fail, so keep the list short.
+
 ### Worker pools
 
 Without a `workers` block, every host with role `worker` lands in one pool. Name
@@ -268,14 +275,20 @@ pushing cloud-config, kubeadm init and join, node registration by provider ID,
 the CNI install and the pivot. It does not cover real hardware, firmware
 variation, VIP failover or network partitions.
 
-It needs a raised inotify budget, which the harness checks and fixes:
+Two things it needs from the machine running it, because a container standing in
+for a host shares them with everything else:
 
 ```console
-$ sudo sysctl -w fs.inotify.max_user_instances=8192
+$ sudo sysctl -w fs.inotify.max_user_instances=8192   # the harness does this
+$ sudo swapoff -a                                     # you have to do this
 ```
 
-Without it kube-proxy dies with `too many open files` and nothing in the
-cluster can reach the API server.
+A bootstrap cluster plus one systemd container per host exhausts the default
+inotify budget, and kube-proxy then dies with `too many open files` while
+nothing in the cluster can reach the API server. And `/proc/swaps` is not
+namespaced, so the containers see the machine's swap and kubelet refuses to
+start; kgenesis cannot turn that off from inside, because the swapfile is not in
+their mount namespace. On a real host it is.
 
 On Docker Desktop the harness skips the CLI-side `inventory check`, because
 macOS cannot route to a docker bridge directly. The controller runs inside the

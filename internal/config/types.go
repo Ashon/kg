@@ -49,6 +49,17 @@ type ClusterConfig struct {
 	// air-gapped or mirrored environments.
 	ImageRepository string `json:"imageRepository,omitempty"`
 
+	// preKubeadmCommands and postKubeadmCommands run on every node, before and
+	// after kubeadm. They are the escape hatch for whatever a particular fleet
+	// needs that kgenesis does not model: a vendor agent, storage setup, NIC
+	// tuning, or an extra kubeadm configuration document appended to
+	// /run/kubeadm/kubeadm.yaml.
+	//
+	// They run under `set -e`, so a command that is only sometimes necessary has
+	// to tolerate its own absence.
+	PreKubeadmCommands  []string `json:"preKubeadmCommands,omitempty"`
+	PostKubeadmCommands []string `json:"postKubeadmCommands,omitempty"`
+
 	// ignorePreflightErrors lists kubeadm preflight checks to downgrade to
 	// warnings on every node, by their kubeadm name, for example
 	// "SystemVerification" or "NumCPU". Use it when a check does not apply to

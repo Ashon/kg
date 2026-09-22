@@ -341,3 +341,43 @@ func TestPreflightCommandsSurviveRendering(t *testing.T) {
 		t.Errorf("single quotes were escaped along the way\n---\n%s", got)
 	}
 }
+
+// The operator's commands run after the ones kgenesis needs, and kube-vip
+// appends after both. A shared backing array would let one render leak into the
+// next, so the result has to be a copy.
+func TestRenderAppendsUserCommands(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Cluster.PreKubeadmCommands = []string{"echo mine-pre"}
+	cfg.Cluster.PostKubeadmCommands = []string{"echo mine-post"}
+
+	objects, err := Render(cfg)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	kcp := findControlPlane(t, objects)
+
+	pre := kcp.Spec.KubeadmConfigSpec.PreKubeadmCommands
+	if !containsString(pre, "echo mine-pre") {
+		t.Errorf("the control plane is missing the operator's pre command: %v", pre)
+	}
+	// kgenesis's own preparation has to come first.
+	if pre[0] != nodePreflightCommands()[0] {
+		t.Errorf("user commands displaced the preflight: %v", pre)
+	}
+	if !containsString(kcp.Spec.KubeadmConfigSpec.PostKubeadmCommands, "echo mine-post") {
+		t.Errorf("the control plane is missing the operator's post command")
+	}
+
+	bootstrapTemplate := findBootstrapTemplate(t, objects, WorkerBootstrapName("lab", "default"))
+	if !containsString(bootstrapTemplate.Spec.Template.Spec.PreKubeadmCommands, "echo mine-pre") {
+		t.Errorf("workers are missing the operator's pre command")
+	}
+
+	// Rendering twice must not accumulate.
+	if _, err := Render(cfg); err != nil {
+		t.Fatalf("second Render: %v", err)
+	}
+	if got := len(cfg.Cluster.PreKubeadmCommands); got != 1 {
+		t.Errorf("rendering mutated the configuration: %d pre commands", got)
+	}
+}

@@ -288,7 +288,8 @@ func renderWorkerPool(cfg *config.Config, pool config.WorkerPool) (
 							IgnorePreflightErrors: cfg.Cluster.IgnorePreflightErrors,
 						},
 					},
-					PreKubeadmCommands: nodePreflightCommands(),
+					PreKubeadmCommands:  withUserCommands(nodePreflightCommands(), cfg.Cluster.PreKubeadmCommands),
+					PostKubeadmCommands: withUserCommands(nil, cfg.Cluster.PostKubeadmCommands),
 				},
 			},
 		},
@@ -374,6 +375,15 @@ func nodeTaints(taints []config.Taint) *[]corev1.Taint {
 //
 // They run under `set -e`, so anything that is merely unnecessary on some hosts
 // must not be written as a hard failure.
+// withUserCommands appends the operator's commands to kgenesis's own, returning
+// a fresh slice. The copy matters: kube-vip appends to the result afterwards,
+// and it must not reach back into the parsed configuration.
+func withUserCommands(ours, theirs []string) []string {
+	out := make([]string, 0, len(ours)+len(theirs))
+	out = append(out, ours...)
+	return append(out, theirs...)
+}
+
 func nodePreflightCommands() []string {
 	return []string{
 		// kubelet refuses to start while swap is on, and `swapoff -a` only covers

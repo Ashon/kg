@@ -81,6 +81,17 @@ collect_diagnostics() {
       sed 's/^/    /' || true
 
     echo
+    info "--- workload cluster: what the crash-looping pods said"
+    KUBECONFIG="${STATE}/e2e.kubeconfig" kubectl -n kube-system get pods \
+      -o jsonpath='{range .items[?(@.status.containerStatuses[0].restartCount>0)]}{.metadata.name}{"\n"}{end}' 2>/dev/null |
+      while read -r pod; do
+        [[ -n "${pod}" ]] || continue
+        info "  ${pod}"
+        KUBECONFIG="${STATE}/e2e.kubeconfig" kubectl -n kube-system logs "${pod}" \
+          --previous --tail=30 2>&1 | sed 's/^/      /' || true
+      done
+
+    echo
     info "--- workload cluster: recent events"
     KUBECONFIG="${STATE}/e2e.kubeconfig" kubectl get events -A \
       --sort-by=.lastTimestamp 2>&1 | tail -25 | sed 's/^/    /' || true
@@ -333,6 +344,22 @@ cluster:
   # it. Nothing else here is relaxed.
   ignorePreflightErrors:
     - SystemVerification
+
+  # net.netfilter.nf_conntrack_max is global, not per network namespace, so a
+  # container must not set it and kube-proxy dies trying. kind works around this
+  # the same way. Appended only where the init configuration exists: a join
+  # configuration must not carry it.
+  preKubeadmCommands:
+    - |
+      if [ -f /run/kubeadm/kubeadm.yaml ]; then
+        printf '%s\n' \
+          '---' \
+          'apiVersion: kubeproxy.config.k8s.io/v1alpha1' \
+          'kind: KubeProxyConfiguration' \
+          'conntrack:' \
+          '  maxPerCore: 0' \
+          >> /run/kubeadm/kubeadm.yaml
+      fi
 ${CNI_BLOCK}
 
 ssh:

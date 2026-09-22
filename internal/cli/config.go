@@ -125,6 +125,19 @@ cluster:
     # Leave empty to let kube-vip pick the interface holding the default route.
     interface: ""
 
+  # Run on every node around kubeadm, for whatever this fleet needs that
+  # kgenesis does not model. They run under set -e, so a command that is only
+  # sometimes necessary has to tolerate its own absence.
+  # preKubeadmCommands:
+  #   - /opt/vendor/prepare-nic.sh
+  # postKubeadmCommands:
+  #   - systemctl enable --now node-exporter
+
+  # kubeadm preflight checks to downgrade to warnings, by their kubeadm name.
+  # Keep the list as short as the hardware allows.
+  # ignorePreflightErrors:
+  #   - NumCPU
+
 # Defaults for every host. Any host may override them.
 ssh:
   user: root

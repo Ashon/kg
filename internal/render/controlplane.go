@@ -38,7 +38,8 @@ func renderControlPlane(cfg *config.Config, machineTemplateName string) *control
 				IgnorePreflightErrors: cfg.Cluster.IgnorePreflightErrors,
 			},
 		},
-		PreKubeadmCommands: nodePreflightCommands(),
+		PreKubeadmCommands:  withUserCommands(nodePreflightCommands(), cfg.Cluster.PreKubeadmCommands),
+		PostKubeadmCommands: withUserCommands(nil, cfg.Cluster.PostKubeadmCommands),
 	}
 
 	if cfg.Cluster.VirtualIP.Enabled {
