@@ -6,6 +6,8 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -26,13 +28,19 @@ func newConfigInitCommand(opts *Options) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Write a starter kgenesis.yaml",
+		Short: "Write a starter configuration",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if _, err := os.Stat(opts.ConfigPath); err == nil && !force {
 				return fmt.Errorf("%s already exists; pass --force to overwrite it", opts.ConfigPath)
 			}
-			if err := os.WriteFile(opts.ConfigPath, []byte(sampleConfig), 0o600); err != nil {
+			// The default lives under a directory that may not exist yet.
+			if dir := filepath.Dir(opts.ConfigPath); dir != "" && dir != "." {
+				if err := os.MkdirAll(dir, 0o700); err != nil {
+					return fmt.Errorf("create %s: %w", dir, err)
+				}
+			}
+			if err := os.WriteFile(opts.ConfigPath, []byte(starterConfig()), 0o600); err != nil {
 				return fmt.Errorf("write %s: %w", opts.ConfigPath, err)
 			}
 
@@ -86,6 +94,24 @@ func newConfigValidateCommand(opts *Options) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// starterConfig fills in the operator's own SSH key when one of the usual names
+// is present. The alternative is a file that fails validation on its first line
+// for a reason that has nothing to do with their fleet.
+func starterConfig() string {
+	key := "~/.ssh/id_ed25519"
+
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, candidate := range []string{"id_ed25519", "id_ecdsa", "id_rsa"} {
+			path := filepath.Join(home, ".ssh", candidate)
+			if _, err := os.Stat(path); err == nil {
+				key = "~/.ssh/" + candidate
+				break
+			}
+		}
+	}
+	return strings.Replace(sampleConfig, "__SSH_KEY__", key, 1)
 }
 
 const sampleConfig = `apiVersion: kgenesis.io/v1alpha1
@@ -145,7 +171,7 @@ cluster:
 ssh:
   user: root
   port: 22
-  privateKeyPath: ~/.ssh/id_ed25519
+  privateKeyPath: __SSH_KEY__
   # Strict pins each host's key (set publicKey per host), TOFU trusts the first
   # connection and pins it, Insecure accepts any key.
   hostKeyPolicy: TOFU

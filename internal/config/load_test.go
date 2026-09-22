@@ -195,3 +195,43 @@ func TestLoadResolvesLocalCNIManifestsButNotURLs(t *testing.T) {
 		t.Errorf("URL was rewritten: got %q", cfg.Cluster.CNI.Manifests[1])
 	}
 }
+
+// Most fleets share one key. Repeating the same line for every host buries
+// whatever else is wrong, and points at the hosts rather than at the field that
+// has to be edited.
+func TestValidateReportsASharedKeyOnce(t *testing.T) {
+	body := strings.Replace(minimal,
+		"ssh:\n  privateKeyPath: ./id_ed25519\n",
+		"ssh:\n  privateKeyPath: ./missing_key\n", 1)
+
+	_, err := Load(write(t, body))
+	if err == nil {
+		t.Fatal("expected a missing key to fail validation")
+	}
+
+	message := err.Error()
+	if got := strings.Count(message, "is not readable"); got != 1 {
+		t.Errorf("the key error appears %d times, want 1:\n%s", got, message)
+	}
+	if !strings.Contains(message, "ssh.privateKeyPath") {
+		t.Errorf("the error does not name the field to edit:\n%s", message)
+	}
+	if strings.Contains(message, "hosts[0].privateKeyPath") {
+		t.Errorf("the error blames a host for a shared setting:\n%s", message)
+	}
+}
+
+// A key set on one host is that host's problem, and has to say so.
+func TestValidateReportsAPerHostKeyAgainstThatHost(t *testing.T) {
+	body := strings.Replace(minimal,
+		"  - {name: w-1, address: 10.10.0.21, role: worker}\n",
+		"  - {name: w-1, address: 10.10.0.21, role: worker, privateKeyPath: ./only-here}\n", 1)
+
+	_, err := Load(write(t, body))
+	if err == nil {
+		t.Fatal("expected a missing per-host key to fail validation")
+	}
+	if !strings.Contains(err.Error(), "hosts[3].privateKeyPath") {
+		t.Errorf("the error does not name the host that set it:\n%v", err)
+	}
+}

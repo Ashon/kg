@@ -86,3 +86,37 @@ func TestNoHardcodedInvocationsInHints(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultConfigPath(t *testing.T) {
+	original, hadEnv := os.LookupEnv("KGENESIS_CONFIG")
+	t.Cleanup(func() {
+		if hadEnv {
+			os.Setenv("KGENESIS_CONFIG", original)
+		} else {
+			os.Unsetenv("KGENESIS_CONFIG")
+		}
+	})
+
+	// KGENESIS_CONFIG selects a fleet for a shell without repeating --config.
+	os.Setenv("KGENESIS_CONFIG", "/somewhere/lab.yaml")
+	if got := defaultConfigPath(); got != "/somewhere/lab.yaml" {
+		t.Errorf("with KGENESIS_CONFIG set: got %q", got)
+	}
+
+	os.Unsetenv("KGENESIS_CONFIG")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory")
+	}
+	want := filepath.Join(home, ConfigDir, ConfigFile)
+	if got := defaultConfigPath(); got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+
+	// The path must not depend on where the command was run from.
+	dir := t.TempDir()
+	t.Chdir(dir)
+	if got := defaultConfigPath(); got != want {
+		t.Errorf("after changing directory: got %q, want %q", got, want)
+	}
+}

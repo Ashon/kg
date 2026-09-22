@@ -225,6 +225,7 @@ func (c *Config) Validate() error {
 	}
 	seenName := map[string]bool{}
 	seenAddr := map[string]bool{}
+	reportedKeys := map[string]bool{}
 	for i, h := range c.Hosts {
 		where := fmt.Sprintf("hosts[%d]", i)
 		switch {
@@ -252,9 +253,17 @@ func (c *Config) Validate() error {
 		if h.PrivateKeyPath == "" && h.Password == "" {
 			add("%s has no credential: set ssh.privateKeyPath, ssh.password or a per-host override", where)
 		}
-		if h.PrivateKeyPath != "" {
+		// Reported against the field it came from, and once. Most fleets share
+		// one key, and repeating the same line for every host buries whatever
+		// else is wrong.
+		if h.PrivateKeyPath != "" && !reportedKeys[h.PrivateKeyPath] {
 			if _, err := os.Stat(h.PrivateKeyPath); err != nil {
-				add("%s.privateKeyPath %q is not readable: %v", where, h.PrivateKeyPath, err)
+				reportedKeys[h.PrivateKeyPath] = true
+				if h.PrivateKeyPath == c.SSH.PrivateKeyPath {
+					add("ssh.privateKeyPath %q is not readable: %v", h.PrivateKeyPath, err)
+				} else {
+					add("%s.privateKeyPath %q is not readable: %v", where, h.PrivateKeyPath, err)
+				}
 			}
 		}
 		switch h.HostKeyPolicy {

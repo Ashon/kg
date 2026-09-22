@@ -20,12 +20,13 @@ import (
 
 // Options are the flags shared by every subcommand.
 type Options struct {
-	// ConfigPath is the kgenesis.yaml describing the cluster and the host pool.
+	// ConfigPath is the configuration describing the cluster and the host pool.
 	ConfigPath string
 
 	// StateDir holds the bootstrap cluster's kubeconfig and the workload
-	// kubeconfig kgenesis writes. Keeping them out of ~/.kube means bootstrapping
-	// never disturbs the contexts the operator already has.
+	// kubeconfig kgenesis writes. It sits beside the configuration, and out of
+	// ~/.kube, so bootstrapping never disturbs the contexts the operator already
+	// has.
 	StateDir string
 
 	// Verbose turns on the underlying kind and clusterctl output.
@@ -60,7 +61,7 @@ hosts you already have, over SSH.
 
 The usual sequence:
 
-  ` + pad(invoke("config init")) + `write a starter kgenesis.yaml
+  ` + pad(invoke("config init")) + `write a starter configuration
   ` + pad(invoke("inventory check")) + `confirm every host is reachable and ready
   ` + pad(invoke("init")) + `bring up the bootstrap cluster and the providers
   ` + pad(invoke("cluster create")) + `stamp out the cluster and wait for it
@@ -84,11 +85,11 @@ The usual sequence:
 
 	defaultState, err := defaultStateDir()
 	if err != nil {
-		defaultState = ".kgenesis"
+		defaultState = ConfigDir
 	}
 
-	cmd.PersistentFlags().StringVarP(&opts.ConfigPath, "config", "c", "kgenesis.yaml",
-		"Path to the kgenesis configuration file")
+	cmd.PersistentFlags().StringVarP(&opts.ConfigPath, "config", "c", defaultConfigPath(),
+		"Path to the kgenesis configuration file (also KGENESIS_CONFIG)")
 	cmd.PersistentFlags().StringVar(&opts.StateDir, "state-dir", defaultState,
 		"Directory for the kubeconfigs kgenesis manages")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false,
@@ -109,12 +110,36 @@ The usual sequence:
 	return cmd
 }
 
+// ConfigDir is where kgenesis keeps a configuration when none is given.
+const ConfigDir = ".kg"
+
+// ConfigFile is the name of that configuration. It is YAML, and named without an
+// extension the way ~/.kube/config and ~/.gitconfig are: it is the tool's
+// configuration rather than one file among several.
+const ConfigFile = "config"
+
+// defaultConfigPath resolves the configuration to use when --config is not
+// given. KGENESIS_CONFIG comes first, so a fleet can be selected for a shell
+// without repeating the flag, the same way KUBECONFIG works.
+func defaultConfigPath() string {
+	if fromEnv := os.Getenv("KGENESIS_CONFIG"); fromEnv != "" {
+		return fromEnv
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Nothing better to offer; the error surfaces when the file is read.
+		return filepath.Join(ConfigDir, ConfigFile)
+	}
+	return filepath.Join(home, ConfigDir, ConfigFile)
+}
+
 func defaultStateDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".kgenesis"), nil
+	return filepath.Join(home, ConfigDir), nil
 }
 
 // Execute runs the CLI and turns an error into an exit code.
@@ -149,4 +174,12 @@ func (o *Options) requireWorkloadKubeconfig(ctx context.Context, cfg *config.Con
 		return "", fmt.Errorf("write %s: %w", path, err)
 	}
 	return path, nil
+}
+
+// bootstrapClusterExists reports whether `init` has been run for this state
+// directory. It is the difference between a command that cannot answer and one
+// whose answer is "nothing has been built yet".
+func (o *Options) bootstrapClusterExists() bool {
+	_, err := os.Stat(o.BootstrapKubeconfig())
+	return err == nil
 }
