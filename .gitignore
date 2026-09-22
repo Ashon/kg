@@ -1,0 +1,8 @@
+# Build output
+bin/
+/manager
+/kgenesis
+
+# Local genesis node state
+.kgenesis/
+*.kubeconfig

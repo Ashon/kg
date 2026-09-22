@@ -1,0 +1,35 @@
+# Cluster API's own manager binds to an aggregated ClusterRole that collects every
+# role labelled cluster.x-k8s.io/aggregate-to-manager. Without this, the core
+# controllers cannot watch this provider's resources and a Cluster never leaves
+# its initial phase - the failure shows up only as "forbidden" in capi-controller
+# logs, so the role is part of the provider's contract, not an optional extra.
+#
+# The kubeadm control plane provider aggregates separately and needs the same
+# access to read the infrastructure machine templates it stamps machines from.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kgenesis-aggregated-to-capi
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-kgenesis
+    cluster.x-k8s.io/aggregate-to-manager: "true"
+    kubeadm.controlplane.cluster.x-k8s.io/aggregate-to-manager: "true"
+rules:
+- apiGroups:
+  - infrastructure.kgenesis.io
+  resources:
+  - hostclusters
+  - hostclusters/status
+  - hostmachines
+  - hostmachines/status
+  - hostmachinetemplates
+  - hosts
+  - hosts/status
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete

@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kgenesis-system
+  labels:
+    # clusterctl uses these labels to recognise the provider, which is what makes
+    # `clusterctl move` carry it to the workload cluster during a pivot.
+    cluster.x-k8s.io/provider: infrastructure-kgenesis
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kgenesis-manager
+  namespace: kgenesis-system
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-kgenesis
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kgenesis-manager-rolebinding
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-kgenesis
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kgenesis-manager-role
+subjects:
+- kind: ServiceAccount
+  name: kgenesis-manager
+  namespace: kgenesis-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kgenesis-leader-election-role
+  namespace: kgenesis-system
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-kgenesis
+rules:
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kgenesis-leader-election-rolebinding
+  namespace: kgenesis-system
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-kgenesis
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kgenesis-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: kgenesis-manager
+  namespace: kgenesis-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kgenesis-controller-manager
+  namespace: kgenesis-system
+  labels:
+    cluster.x-k8s.io/provider: infrastructure-kgenesis
+    control-plane: controller-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/provider: infrastructure-kgenesis
+      control-plane: controller-manager
+  template:
+    metadata:
+      labels:
+        cluster.x-k8s.io/provider: infrastructure-kgenesis
+        control-plane: controller-manager
+    spec:
+      serviceAccountName: kgenesis-manager
+      terminationGracePeriodSeconds: 10
+      # The manager reaches the hosts over SSH, so it has to run somewhere with
+      # routes to them. On the genesis node that is the kind node itself.
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+      containers:
+      - name: manager
+        image: ghcr.io/ashon/kgenesis:dev
+        imagePullPolicy: IfNotPresent
+        args:
+        - --leader-elect
+        - --metrics-bind-address=:8080
+        - --health-probe-bind-address=:9440
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9440
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 9440
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop: ["ALL"]
