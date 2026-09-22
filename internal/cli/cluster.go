@@ -2,13 +2,17 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,6 +20,7 @@ import (
 	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
 	"github.com/Ashon/kgenesis/internal/config"
 	"github.com/Ashon/kgenesis/internal/kube"
+	"github.com/Ashon/kgenesis/internal/provisioner"
 	"github.com/Ashon/kgenesis/internal/render"
 )
 
@@ -151,6 +156,12 @@ func waitForCluster(ctx context.Context, c client.Client, cfg *config.Config, ou
 			return nil
 		}
 
+		// Waiting out the timeout on a bootstrap that has already failed helps
+		// nobody: the run does not retry, and the reason is on the condition.
+		if len(summary.failures) > 0 {
+			return newBootstrapFailedError(summary.failures)
+		}
+
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("cluster %s was not ready in time; run `%s` to see where it stopped",
@@ -168,6 +179,16 @@ type summary struct {
 	machines            []clusterv1.Machine
 	machinesRunning     int
 	hosts               []infrav1.Host
+
+	// failures are machines whose bootstrap will not recover on its own.
+	failures []machineFailure
+}
+
+// machineFailure is a bootstrap that ran on a host and exited non-zero.
+type machineFailure struct {
+	machine string
+	host    string
+	message string
 }
 
 func (s *summary) ready() bool {
@@ -222,7 +243,40 @@ func clusterSummary(ctx context.Context, c client.Client, cfg *config.Config) (*
 	}
 	s.hosts = hosts.Items
 
+	hostMachines := &infrav1.HostMachineList{}
+	if err := c.List(ctx, hostMachines, client.InNamespace(cfg.Cluster.Namespace)); err != nil {
+		return nil, err
+	}
+	for i := range hostMachines.Items {
+		if failure, ok := bootstrapFailure(&hostMachines.Items[i]); ok {
+			s.failures = append(s.failures, failure)
+		}
+	}
+
 	return s, nil
+}
+
+// bootstrapFailure reads the Provisioned condition for a run that has already
+// failed. kgenesis does not re-run kubeadm over a half-configured host, so this
+// state does not clear by itself and there is nothing to be gained by waiting.
+func bootstrapFailure(hostMachine *infrav1.HostMachine) (machineFailure, bool) {
+	condition := meta.FindStatusCondition(hostMachine.Status.Conditions,
+		infrav1.HostMachineProvisionedCondition)
+	if condition == nil ||
+		condition.Status != metav1.ConditionFalse ||
+		condition.Reason != infrav1.ReasonBootstrapFailed {
+		return machineFailure{}, false
+	}
+
+	host := "-"
+	if hostMachine.Status.HostRef != nil {
+		host = hostMachine.Status.HostRef.Name
+	}
+	return machineFailure{
+		machine: hostMachine.Name,
+		host:    host,
+		message: condition.Message,
+	}, true
 }
 
 func newClusterStatusCommand(opts *Options) *cobra.Command {
@@ -286,6 +340,14 @@ func printStatus(out io.Writer, cfg *config.Config, s *summary) {
 	}
 	_ = w.Flush()
 	fmt.Fprintln(out)
+
+	for _, f := range s.failures {
+		fmt.Fprintf(out, "%s on host %s failed to bootstrap:\n", f.machine, f.host)
+		for _, line := range strings.Split(strings.TrimSpace(f.message), "\n") {
+			fmt.Fprintf(out, "  %s\n", line)
+		}
+		fmt.Fprintln(out)
+	}
 }
 
 // hostForMachine finds which host a machine landed on, by the claim the kgenesis
@@ -380,4 +442,22 @@ func waitForClusterGone(ctx context.Context, c client.Client, key types.Namespac
 		case <-time.After(10 * time.Second):
 		}
 	}
+}
+
+// newBootstrapFailedError reports every failed machine at once, with the tail of
+// the host's bootstrap log that the provider copied onto the condition.
+func newBootstrapFailedError(failures []machineFailure) error {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d machine(s) failed to bootstrap and will not retry:\n", len(failures))
+
+	for _, f := range failures {
+		fmt.Fprintf(&b, "\n  %s on host %s\n", f.machine, f.host)
+		for _, line := range strings.Split(strings.TrimSpace(f.message), "\n") {
+			fmt.Fprintf(&b, "    %s\n", line)
+		}
+	}
+
+	fmt.Fprintf(&b, "\nThe full log is at %s on each host. "+
+		"Delete the cluster to reset the hosts and start again.\n", provisioner.LogPath)
+	return errors.New(b.String())
 }

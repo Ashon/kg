@@ -64,17 +64,5 @@ jobs:
           TIMEOUT: 25m
         run: ./test/e2e/run.sh
 
-      - name: Collect diagnostics
-        if: failure()
-        run: |
-          echo "::group::docker ps"
-          docker ps -a
-          echo "::endgroup::"
-          for host in $(docker ps -a --filter 'name=e2e-' --format '{{.Names}}'); do
-            echo "::group::${host} bootstrap log"
-            docker exec "${host}" cat /var/log/kgenesis-bootstrap.log 2>&1 | tail -200 || true
-            echo "::endgroup::"
-            echo "::group::${host} kubelet"
-            docker exec "${host}" journalctl -u kubelet --no-pager -n 100 2>&1 || true
-            echo "::endgroup::"
-          done
+      # The harness collects diagnostics itself, before it tears the containers
+      # down. A step here would only ever see an empty docker ps.

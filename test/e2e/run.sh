@@ -56,11 +56,39 @@ collect_diagnostics() {
     KUBECONFIG="${STATE}/bootstrap.kubeconfig" kubectl -n kgenesis-system logs deploy/kgenesis-controller-manager --tail=60 2>&1 | tail -60 || true
   fi
 
+  # Everything below has to be collected here, before cleanup: the containers
+  # are gone by the time any later CI step could look at them, and a kubeadm
+  # failure is almost always explained by the kubelet rather than by kubeadm.
   local host
   for host in $(host_names); do
+    docker inspect "${host}" >/dev/null 2>&1 || continue
+
     echo
-    info "--- ${host}: /var/log/kgenesis-bootstrap.log (tail)"
-    docker exec "${host}" tail -n 40 /var/log/kgenesis-bootstrap.log 2>&1 | sed 's/^/    /' || true
+    info "--- ${host}: bootstrap log"
+    docker exec "${host}" tail -n 60 /var/log/kgenesis-bootstrap.log 2>&1 | sed 's/^/    /' || true
+
+    echo
+    info "--- ${host}: kubelet"
+    docker exec "${host}" systemctl status kubelet --no-pager 2>&1 | sed 's/^/    /' || true
+    docker exec "${host}" journalctl -u kubelet --no-pager -n 120 2>&1 | sed 's/^/    /' || true
+
+    echo
+    info "--- ${host}: containerd"
+    docker exec "${host}" journalctl -u containerd --no-pager -n 40 2>&1 | sed 's/^/    /' || true
+
+    echo
+    info "--- ${host}: containers"
+    docker exec "${host}" crictl ps -a 2>&1 | sed 's/^/    /' || true
+
+    echo
+    info "--- ${host}: cgroup and kernel facts"
+    docker exec "${host}" sh -c '
+      echo "cgroup version: $([ -f /sys/fs/cgroup/cgroup.controllers ] && echo v2 || echo v1)"
+      echo "controllers: $(cat /sys/fs/cgroup/cgroup.controllers 2>/dev/null)"
+      echo "/dev/kmsg: $(ls -l /dev/kmsg 2>&1)"
+      echo "swap: $(swapon --show 2>/dev/null | tail -n +2 | wc -l) entries"
+      echo "kubelet cgroup: $(ls -d /sys/fs/cgroup/kubelet 2>&1)"
+    ' 2>&1 | sed 's/^/    /' || true
   done
 }
 
@@ -143,11 +171,15 @@ for host in $(host_names); do
   docker rm -f "${host}" >/dev/null 2>&1 || true
   # These are the flags kind runs its own nodes with. /lib/modules lets the
   # bootstrap script load br_netfilter, exactly as it would on a real host.
-  docker run -d \
+  # These are the flags kind runs its own nodes with, and they are not
+  # interchangeable: --tty is what the entrypoint logs through, --init=false
+  # keeps the entrypoint as PID 1 instead of docker-init, and /lib/modules is
+  # what lets the bootstrap script load br_netfilter as it would on a real host.
+  docker run --detach --tty \
     --name "${host}" --hostname "${host}" --network "${NETWORK}" \
     --privileged \
     --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-    --cgroupns=private \
+    --cgroupns=private --init=false \
     --tmpfs /tmp --tmpfs /run --volume /var \
     --volume /lib/modules:/lib/modules:ro \
     --restart=on-failure:1 \
@@ -169,6 +201,20 @@ done
 host_ip() {
   docker inspect -f "{{.NetworkSettings.Networks.${NETWORK}.IPAddress}}" "$1"
 }
+
+# After the pivot the provider runs in the workload cluster, whose nodes are
+# these containers. Their containerd has never seen an image built on this
+# machine, and the tag is not published anywhere, so it has to be imported the
+# same way kind loads images into its own nodes.
+log "Loading the provider image into the hosts"
+docker save "${PROVIDER_IMAGE}" -o "${WORKDIR}/provider.tar"
+for host in $(host_names); do
+  # Piped rather than copied in: /tmp inside these containers is a tmpfs, which
+  # docker cp does not write through.
+  docker exec -i "${host}" ctr --namespace k8s.io images import - \
+    < "${WORKDIR}/provider.tar" >/dev/null
+  info "${host}"
+done
 
 # Whether this machine can open a TCP connection to a container on the docker
 # bridge. On Linux it can, so the test runs end to end. On Docker Desktop the
@@ -325,7 +371,8 @@ nodes="$(KUBECONFIG="${WORKLOAD}" kubectl get nodes --no-headers | wc -l | tr -d
 [[ "${nodes}" == "${expected}" ]] || fail "expected ${expected} nodes, found ${nodes}"
 
 log "Pivoting"
-"${KG}" pivot -c "${CONFIG}" --state-dir "${STATE}" --timeout "${TIMEOUT}"
+"${KG}" pivot -c "${CONFIG}" --state-dir "${STATE}" \
+  --provider-image "${PROVIDER_IMAGE}" --timeout "${TIMEOUT}"
 
 log "Verifying the cluster now manages itself"
 KUBECONFIG="${WORKLOAD}" kubectl get cluster,machines -A
