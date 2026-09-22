@@ -178,6 +178,22 @@ controller restart and a `clusterctl move`. When a bootstrap fails, that log is
 the first place to look; its tail is also copied onto the `HostMachine`'s
 `Provisioned` condition.
 
+### Provider IDs
+
+Cluster API pairs a Node with its Machine by provider ID, so the kubelet has to
+register with one. It cannot come from the `KubeadmConfig`, because the bootstrap
+data is generated per Machine before any host has been claimed. kgenesis knows
+the value by the time it pushes the script, so it rewrites the kubeadm
+configuration in flight, adding `provider-id` to
+`nodeRegistration.kubeletExtraArgs`.
+
+A systemd drop-in looks like the simpler answer and does not work: systemd lets
+`EnvironmentFile=` override `Environment=` whatever the order, and the kubeadm
+packages install an `/etc/default/kubelet` that sets `KUBELET_EXTRA_ARGS`. A
+drop-in is silently ignored on exactly the hosts this provider targets. Going
+through kubeadm puts the flag in `KUBELET_KUBEADM_ARGS`, which nothing else
+competes for.
+
 Deleting a machine runs `kubeadm reset` and the matching cleanup before the host
 returns to the pool.
 
@@ -218,10 +234,40 @@ $ make help            # list targets
 $ make build           # bin/kgenesis and the bin/kg alias
 $ make install         # both into GOBIN
 $ make test            # unit tests
+$ make e2e             # build a real cluster and pivot it
 $ make generate        # deepcopy, CRDs, RBAC, embedded provider manifest
 $ make verify          # fail when generated files are out of date
 $ make docker-build    # build the provider image
 ```
+
+### Tests
+
+Unit tests cover the parts that are easy to get subtly wrong and expensive to
+debug on hardware. The cloud-config renderer is driven by CABPK's own generator,
+so an upstream template change shows up there rather than on a half-bootstrapped
+host, and the SSH client is tested against an in-process SSH server.
+
+`make e2e` builds a real cluster. kgenesis reaches hosts over SSH and nothing
+else, so containers running sshd stand in for machines; they are built from
+kindest/node, which already carries systemd, containerd, kubeadm, kubelet and
+the control plane images, so kubeadm genuinely runs and the test needs no
+network once the images are local. It covers claiming hosts, rendering and
+pushing cloud-config, kubeadm init and join, node registration by provider ID,
+the CNI install and the pivot. It does not cover real hardware, firmware
+variation, VIP failover or network partitions.
+
+It needs a raised inotify budget, which the harness checks and fixes:
+
+```console
+$ sudo sysctl -w fs.inotify.max_user_instances=8192
+```
+
+Without it kube-proxy dies with `too many open files` and nothing in the
+cluster can reach the API server.
+
+On Docker Desktop the harness skips the CLI-side `inventory check`, because
+macOS cannot route to a docker bridge directly. The controller runs inside the
+bootstrap cluster on that same network, so the rest of the test is unaffected.
 
 Run a locally built provider on the genesis node:
 
@@ -248,4 +294,17 @@ internal/provisioner/ the detached run on a host, and the probe
 internal/render/     kgenesis.yaml to Cluster API objects
 internal/ssh/        the transport
 config/              CRDs, RBAC and the controller Deployment
+test/e2e/            the end-to-end harness and its stand-in host image
 ```
+
+## CI
+
+| Workflow | What it does |
+| -------- | ------------ |
+| `CI` | gofmt, vet, unit tests, build, and a check that the generated files are current |
+| `E2E` | builds a cluster from container hosts and pivots it, on every push and weekly |
+
+The generated-files check matters more than it looks: the CRDs, RBAC and the
+provider manifest embedded in the CLI are all generated, and a stale copy would
+install the wrong thing on a genesis node without anything failing until
+`kg init`.

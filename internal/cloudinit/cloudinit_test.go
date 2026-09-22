@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/blang/semver/v4"
 	bootstrapv1 "sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2"
 	"sigs.k8s.io/cluster-api/bootstrap/kubeadm/pkg/cloudinit"
@@ -178,43 +180,168 @@ runcmd:
 	}
 }
 
-func TestRenderInjectsProviderID(t *testing.T) {
-	const userData = `#cloud-config
-runcmd:
-  - kubeadm join --config /run/kubeadm/kubeadm-join-config.yaml
-`
+func TestRenderInjectsProviderIDIntoKubeadmConfig(t *testing.T) {
 	const providerID = "kgenesis://default/cp-1"
+
+	// What CABPK emits for a control plane: a multi-document kubeadm config in
+	// write_files, then kubeadm init in runcmd.
+	const userData = `#cloud-config
+write_files:
+-   path: /run/kubeadm/kubeadm.yaml
+    owner: root:root
+    permissions: '0640'
+    content: |
+      ---
+      apiVersion: kubeadm.k8s.io/v1beta4
+      kind: ClusterConfiguration
+      clusterName: lab
+      ---
+      apiVersion: kubeadm.k8s.io/v1beta4
+      kind: InitConfiguration
+      nodeRegistration:
+        ignorePreflightErrors:
+        - SystemVerification
+runcmd:
+  - kubeadm init --config /run/kubeadm/kubeadm.yaml
+`
 
 	script, err := Render([]byte(userData), Options{ProviderID: providerID})
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	got := string(script)
 
-	if !strings.Contains(got, kubeletDropInPath) {
-		t.Errorf("drop-in path is missing\n---\n%s", got)
-	}
-	if !strings.Contains(got, "systemctl daemon-reload") {
-		t.Errorf("daemon-reload is missing\n---\n%s", got)
-	}
+	written := extractPayload(t, string(script), "/run/kubeadm/kubeadm.yaml")
 
-	want := "[Service]\nEnvironment=\"KUBELET_EXTRA_ARGS=--provider-id=" + providerID + "\"\n"
-	if got := extractPayload(t, string(script), kubeletDropInPath); got != want {
-		t.Errorf("drop-in contents: got %q, want %q", got, want)
+	docs, err := splitYAML([]byte(written))
+	if err != nil {
+		t.Fatalf("split the rewritten config: %v", err)
+	}
+	if len(docs) != 2 {
+		t.Fatalf("expected 2 documents, got %d:\n%s", len(docs), written)
 	}
 
-	// The drop-in has to be in place before kubeadm starts the kubelet.
-	if strings.Index(got, kubeletDropInPath) > strings.Index(got, "kubeadm join") {
-		t.Errorf("drop-in is written after kubeadm runs\n---\n%s", got)
+	var init map[string]any
+	if err := yaml.Unmarshal(docs[1], &init); err != nil {
+		t.Fatalf("parse InitConfiguration: %v", err)
+	}
+
+	if init["kind"] != "InitConfiguration" {
+		t.Fatalf("second document is %v, not InitConfiguration", init["kind"])
+	}
+
+	registration, ok := init["nodeRegistration"].(map[string]any)
+	if !ok {
+		t.Fatalf("nodeRegistration is missing:\n%s", written)
+	}
+
+	// The rest of nodeRegistration has to survive the rewrite.
+	if _, ok := registration["ignorePreflightErrors"]; !ok {
+		t.Errorf("the rewrite dropped ignorePreflightErrors:\n%s", written)
+	}
+
+	args, ok := registration["kubeletExtraArgs"].([]any)
+	if !ok {
+		t.Fatalf("kubeletExtraArgs is not a list, got %T:\n%s", registration["kubeletExtraArgs"], written)
+	}
+	if len(args) != 1 {
+		t.Fatalf("expected one kubelet arg, got %v", args)
+	}
+
+	arg := args[0].(map[string]any)
+	if arg["name"] != "provider-id" || arg["value"] != providerID {
+		t.Errorf("kubelet arg is %v, want provider-id=%s", arg, providerID)
+	}
+
+	// The ClusterConfiguration document has no nodeRegistration and must be left
+	// alone apart from formatting.
+	var cluster map[string]any
+	if err := yaml.Unmarshal(docs[0], &cluster); err != nil {
+		t.Fatalf("parse ClusterConfiguration: %v", err)
+	}
+	if cluster["clusterName"] != "lab" {
+		t.Errorf("ClusterConfiguration was altered: %v", cluster)
 	}
 }
 
-func TestRenderWithoutProviderIDEmitsNoDropIn(t *testing.T) {
-	script, err := Render([]byte("#cloud-config\nruncmd:\n  - \"true\"\n"), Options{})
+// CABPK emits v1beta3 for Kubernetes below 1.31, where kubeletExtraArgs is a map.
+func TestRenderInjectsProviderIDIntoV1beta3(t *testing.T) {
+	const userData = `#cloud-config
+write_files:
+-   path: /run/kubeadm/kubeadm-join-config.yaml
+    content: |
+      apiVersion: kubeadm.k8s.io/v1beta3
+      kind: JoinConfiguration
+      nodeRegistration:
+        kubeletExtraArgs:
+          node-labels: role=worker
+runcmd:
+  - kubeadm join --config /run/kubeadm/kubeadm-join-config.yaml
+`
+
+	script, err := Render([]byte(userData), Options{ProviderID: "kgenesis://default/w-1"})
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	if strings.Contains(string(script), kubeletDropInPath) {
-		t.Errorf("drop-in was emitted without a provider ID\n---\n%s", script)
+
+	written := extractPayload(t, string(script), "/run/kubeadm/kubeadm-join-config.yaml")
+
+	var join map[string]any
+	if err := yaml.Unmarshal([]byte(written), &join); err != nil {
+		t.Fatalf("parse JoinConfiguration: %v", err)
+	}
+
+	args, ok := join["nodeRegistration"].(map[string]any)["kubeletExtraArgs"].(map[string]any)
+	if !ok {
+		t.Fatalf("kubeletExtraArgs is not a map:\n%s", written)
+	}
+	if args["provider-id"] != "kgenesis://default/w-1" {
+		t.Errorf("provider-id is %v", args["provider-id"])
+	}
+	// The existing entry must survive.
+	if args["node-labels"] != "role=worker" {
+		t.Errorf("the rewrite dropped node-labels: %v", args)
+	}
+}
+
+// Applying a provider ID that lands nowhere would produce a machine Cluster API
+// can never pair with its Node, so it has to be an error rather than a no-op.
+func TestRenderFailsWhenThereIsNoKubeadmConfig(t *testing.T) {
+	const userData = `#cloud-config
+write_files:
+-   path: /etc/motd
+    content: nothing to patch here
+runcmd:
+  - "true"
+`
+
+	_, err := Render([]byte(userData), Options{ProviderID: "kgenesis://default/cp-1"})
+	if err == nil {
+		t.Fatal("expected an error when no kubeadm configuration is present")
+	}
+	if !strings.Contains(err.Error(), "provider ID") {
+		t.Errorf("error does not explain the problem: %v", err)
+	}
+}
+
+func TestRenderWithoutProviderIDLeavesTheConfigAlone(t *testing.T) {
+	const userData = `#cloud-config
+write_files:
+-   path: /run/kubeadm/kubeadm.yaml
+    content: |
+      apiVersion: kubeadm.k8s.io/v1beta4
+      kind: InitConfiguration
+      nodeRegistration: {}
+runcmd:
+  - "true"
+`
+
+	script, err := Render([]byte(userData), Options{})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	written := extractPayload(t, string(script), "/run/kubeadm/kubeadm.yaml")
+	if strings.Contains(written, "kubeletExtraArgs") {
+		t.Errorf("kubeletExtraArgs was added without a provider ID:\n%s", written)
 	}
 }

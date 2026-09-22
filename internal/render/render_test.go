@@ -6,12 +6,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/blang/semver/v4"
 	bootstrapv1 "sigs.k8s.io/cluster-api/api/bootstrap/kubeadm/v1beta2"
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	cabpkcloudinit "sigs.k8s.io/cluster-api/bootstrap/kubeadm/pkg/cloudinit"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
+	"github.com/Ashon/kgenesis/internal/cloudinit"
 	"github.com/Ashon/kgenesis/internal/config"
 )
 
@@ -289,4 +292,47 @@ func findBootstrapTemplate(t *testing.T, objects *Objects, name string) *bootstr
 	}
 	t.Fatalf("no KubeadmConfigTemplate named %q in the rendered objects", name)
 	return nil
+}
+
+// The preflight commands travel through CABPK's cloud-config template and the
+// kgenesis renderer before a host ever sees them, so their quoting has to
+// survive both. They also run under `set -e`: a step that is merely unnecessary
+// on some hosts must not read as a failure there.
+func TestPreflightCommandsSurviveRendering(t *testing.T) {
+	userData, err := cabpkcloudinit.NewNode(&cabpkcloudinit.NodeInput{
+		BaseUserData: cabpkcloudinit.BaseUserData{
+			PreKubeadmCommands: nodePreflightCommands(),
+			KubernetesVersion:  semver.MustParse("1.33.1"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("generate CABPK user data: %v", err)
+	}
+
+	script, err := cloudinit.Render(userData, cloudinit.Options{})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	got := string(script)
+
+	for _, want := range []string{
+		// Tolerant: these modules may be built in or already loaded, in which
+		// case modprobe has no file to find.
+		"modprobe overlay 2>/dev/null || true",
+		"modprobe br_netfilter 2>/dev/null || true",
+		// Strict: sysctl --system exits 0 for keys that do not exist, so the
+		// check has to be explicit.
+		"test -e /proc/sys/net/bridge/bridge-nf-call-iptables",
+		"exit 1; }",
+		"sysctl --system",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendered script is missing %q\n---\n%s", want, got)
+		}
+	}
+
+	// A failure here means quoting was mangled somewhere in the two templates.
+	if strings.Contains(got, `\'`) {
+		t.Errorf("single quotes were escaped along the way\n---\n%s", got)
+	}
 }

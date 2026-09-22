@@ -29,12 +29,16 @@ func renderControlPlane(cfg *config.Config, machineTemplateName string) *control
 			},
 		},
 		InitConfiguration: bootstrapv1.InitConfiguration{
-			NodeRegistration: bootstrapv1.NodeRegistrationOptions{},
+			NodeRegistration: bootstrapv1.NodeRegistrationOptions{
+				IgnorePreflightErrors: cfg.Cluster.IgnorePreflightErrors,
+			},
 		},
 		JoinConfiguration: bootstrapv1.JoinConfiguration{
-			NodeRegistration: bootstrapv1.NodeRegistrationOptions{},
+			NodeRegistration: bootstrapv1.NodeRegistrationOptions{
+				IgnorePreflightErrors: cfg.Cluster.IgnorePreflightErrors,
+			},
 		},
-		PreKubeadmCommands: containerdPreflightCommands(),
+		PreKubeadmCommands: nodePreflightCommands(),
 	}
 
 	if cfg.Cluster.VirtualIP.Enabled {

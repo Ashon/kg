@@ -283,11 +283,12 @@ func renderWorkerPool(cfg *config.Config, pool config.WorkerPool) (
 				Spec: bootstrapv1.KubeadmConfigSpec{
 					JoinConfiguration: bootstrapv1.JoinConfiguration{
 						NodeRegistration: bootstrapv1.NodeRegistrationOptions{
-							KubeletExtraArgs: nodeLabelArgs(pool.NodeLabels),
-							Taints:           nodeTaints(pool.NodeTaints),
+							KubeletExtraArgs:      nodeLabelArgs(pool.NodeLabels),
+							Taints:                nodeTaints(pool.NodeTaints),
+							IgnorePreflightErrors: cfg.Cluster.IgnorePreflightErrors,
 						},
 					},
-					PreKubeadmCommands: containerdPreflightCommands(),
+					PreKubeadmCommands: nodePreflightCommands(),
 				},
 			},
 		},
@@ -367,14 +368,32 @@ func nodeTaints(taints []config.Taint) *[]corev1.Taint {
 	return &out
 }
 
-// containerdPreflightCommands cover what a stock host image usually lacks.
-// kubeadm's preflight checks fail on any of these, and the failure text is far
-// enough from the cause that setting them up here saves real debugging time.
-func containerdPreflightCommands() []string {
+// nodePreflightCommands cover what a stock host image usually lacks. kubeadm's
+// own preflight checks fail on any of these, and the failure text is far enough
+// from the cause that setting them up here saves real debugging time.
+//
+// They run under `set -e`, so anything that is merely unnecessary on some hosts
+// must not be written as a hard failure.
+func nodePreflightCommands() []string {
 	return []string{
+		// kubelet refuses to start while swap is on. swapoff is a no-op when
+		// there is none.
 		"swapoff -a && sed -ri 's/^([^#].*\\sswap\\s)/#\\1/' /etc/fstab",
-		"modprobe overlay && modprobe br_netfilter",
+
+		// Both may be built into the kernel or already loaded, in which case
+		// modprobe has no module file to find and fails despite the feature being
+		// present. Availability is checked below rather than inferred from this.
+		"modprobe overlay 2>/dev/null || true",
+		"modprobe br_netfilter 2>/dev/null || true",
 		"printf 'overlay\\nbr_netfilter\\n' > /etc/modules-load.d/kgenesis.conf",
+
+		// sysctl --system exits 0 even for keys that do not exist, so without an
+		// explicit check a host missing bridge netfilter comes up looking healthy
+		// while kube-proxy's rules never see pod traffic.
+		"test -e /proc/sys/net/bridge/bridge-nf-call-iptables || " +
+			"{ echo 'kgenesis: br_netfilter is unavailable, so bridged traffic would bypass kube-proxy. " +
+			"Load the module on this host and retry.' >&2; exit 1; }",
+
 		"printf 'net.bridge.bridge-nf-call-iptables=1\\nnet.bridge.bridge-nf-call-ip6tables=1\\nnet.ipv4.ip_forward=1\\n' > /etc/sysctl.d/99-kgenesis.conf",
 		"sysctl --system",
 	}

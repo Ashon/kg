@@ -57,13 +57,19 @@ vet: ## Run go vet
 test: ## Run the unit tests
 	go test ./... -race
 
+# Only the generated paths are compared. Checking the whole tree would report
+# any work in progress as stale generated output, which is a confusing way to
+# find out you simply have uncommitted changes.
+GENERATED := api/v1alpha1/zz_generated.deepcopy.go config/crd config/rbac internal/assets
+
 .PHONY: verify
 verify: generate fmt ## Fail when generated files are out of date
-	@if ! git diff --quiet; then \
+	@if ! git diff --quiet -- $(GENERATED); then \
 	  echo "Generated files are out of date. Run 'make generate' and commit the result:"; \
-	  git --no-pager diff --stat; \
+	  git --no-pager diff --stat -- $(GENERATED); \
 	  exit 1; \
 	fi
+	@echo "Generated files are current."
 
 ##@ Build
 
@@ -97,6 +103,20 @@ docker-build: ## Build the provider container image
 .PHONY: docker-push
 docker-push: ## Push the provider container image
 	docker push $(MANAGER_IMAGE)
+
+##@ End to end
+
+.PHONY: e2e
+e2e: ## Build a real cluster from container hosts and pivot it (needs Docker)
+	./test/e2e/run.sh
+
+.PHONY: e2e-keep
+e2e-keep: ## Same as e2e, but leave the clusters and hosts running for inspection
+	KEEP=1 ./test/e2e/run.sh
+
+.PHONY: e2e-cni-manifest
+e2e-cni-manifest: ## Re-extract the vendored kindnet manifest the e2e test installs
+	./hack/extract-kindnet.sh
 
 ##@ Cleanup
 

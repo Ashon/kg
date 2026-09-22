@@ -49,6 +49,13 @@ type ClusterConfig struct {
 	// air-gapped or mirrored environments.
 	ImageRepository string `json:"imageRepository,omitempty"`
 
+	// ignorePreflightErrors lists kubeadm preflight checks to downgrade to
+	// warnings on every node, by their kubeadm name, for example
+	// "SystemVerification" or "NumCPU". Use it when a check does not apply to
+	// your hardware; each entry is a check nobody will see fail, so keep the list
+	// as short as the environment allows.
+	IgnorePreflightErrors []string `json:"ignorePreflightErrors,omitempty"`
+
 	// cni is applied to the workload cluster once its API server answers.
 	// Without a CNI the nodes stay NotReady.
 	CNI CNIConfig `json:"cni,omitempty"`

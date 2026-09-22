@@ -1,0 +1,80 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # The test builds a real cluster, so it also catches drift in the upstream
+    # images it pulls even when nothing here changed.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      node_image:
+        description: kindest/node image the fake hosts are built from
+        required: false
+        default: kindest/node:v1.33.1
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Build a cluster and pivot it
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+          version: v0.33.0
+
+      # The bootstrap script loads these on each host. On a real machine they
+      # are usually present already; a GitHub runner needs them asked for.
+      - name: Load the kernel modules the hosts need
+        run: |
+          sudo modprobe br_netfilter
+          sudo modprobe overlay
+          lsmod | grep -E '^(br_netfilter|overlay)' || true
+
+      # A bootstrap cluster plus one systemd container per host exhausts the
+      # default inotify budget. kube-proxy then dies with "too many open files"
+      # and nothing in the cluster can reach the API server.
+      - name: Raise the inotify limits
+        run: |
+          sudo sysctl -w fs.inotify.max_user_instances=8192
+          sudo sysctl -w fs.inotify.max_user_watches=1048576
+
+      - name: Run the end to end test
+        env:
+          NODE_IMAGE: ${{ inputs.node_image || 'kindest/node:v1.33.1' }}
+          K8S_VERSION: v1.33.1
+          TIMEOUT: 25m
+        run: ./test/e2e/run.sh
+
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          echo "::group::docker ps"
+          docker ps -a
+          echo "::endgroup::"
+          for host in $(docker ps -a --filter 'name=e2e-' --format '{{.Names}}'); do
+            echo "::group::${host} bootstrap log"
+            docker exec "${host}" cat /var/log/kgenesis-bootstrap.log 2>&1 | tail -200 || true
+            echo "::endgroup::"
+            echo "::group::${host} kubelet"
+            docker exec "${host}" journalctl -u kubelet --no-pager -n 100 2>&1 || true
+            echo "::endgroup::"
+          done

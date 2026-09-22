@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/Ashon/kgenesis/internal/capi"
 	"github.com/Ashon/kgenesis/internal/config"
@@ -63,11 +65,17 @@ The usual sequence:
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			// Two libraries log on their own. clusterctl prints a stack trace for
+			// every retried API call while the bootstrap cluster settles, and
+			// controller-runtime prints one the first time something logs through
+			// it without a logger having been set. Both read as a crash in the
+			// middle of a normal run, so they are quiet unless asked for.
+			logger := logr.Discard()
 			if opts.Verbose {
-				capi.SetLogger(capi.TextLogger(cmd.ErrOrStderr()))
-			} else {
-				capi.SetLogger(capi.DiscardLogger())
+				logger = capi.TextLogger(cmd.ErrOrStderr())
 			}
+			capi.SetLogger(logger)
+			ctrllog.SetLogger(logger)
 		},
 	}
 
