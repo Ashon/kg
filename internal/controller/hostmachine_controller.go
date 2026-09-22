@@ -293,6 +293,20 @@ func (r *HostMachineReconciler) claimHost(
 		return nil, err
 	}
 
+	// A claim is two writes to two objects: the Host records who took it, and
+	// the HostMachine records what it took. Anything that interrupts the pair -
+	// a conflict, a restart - leaves a Host claimed by a HostMachine that has
+	// forgotten it, and claiming a second one would strand the first outside the
+	// pool for good. So the Host's claim is the record, and it is checked first.
+	for i := range hosts.Items {
+		host := &hosts.Items[i]
+		if host.Status.ClaimRef != nil && host.Status.ClaimRef.UID == hostMachine.UID {
+			logger.Info("Recovered a claim this machine had already made", "host", host.Name)
+			hostMachine.Status.HostRef = &corev1.LocalObjectReference{Name: host.Name}
+			return host, nil
+		}
+	}
+
 	for i := range hosts.Items {
 		host := &hosts.Items[i]
 
@@ -327,12 +341,17 @@ func (r *HostMachineReconciler) claimHost(
 			return nil, err
 		}
 
-		if err := r.labelClaimedHost(ctx, host, cluster.Name); err != nil {
-			return nil, err
-		}
-
-		logger.Info("Claimed host", "host", host.Name, "address", host.Spec.Address)
+		// Recorded before anything else is attempted. Every API call between the
+		// claim landing on the Host and the reference landing here is another way
+		// to lose track of a host that is already taken.
 		hostMachine.Status.HostRef = &corev1.LocalObjectReference{Name: host.Name}
+		logger.Info("Claimed host", "host", host.Name, "address", host.Spec.Address)
+
+		if err := r.labelClaimedHost(ctx, host, cluster.Name); err != nil {
+			// The claim stands; the label is only there for operators reading the
+			// pool, and the next reconcile will set it.
+			logger.Error(err, "Could not label the claimed host", "host", host.Name)
+		}
 		return host, nil
 	}
 
