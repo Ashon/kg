@@ -333,3 +333,12 @@ The generated-files check matters more than it looks: the CRDs, RBAC and the
 provider manifest embedded in the CLI are all generated, and a stale copy would
 install the wrong thing on a genesis node without anything failing until
 `kg init`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+kgenesis builds on Cluster API and its kubeadm bootstrap and control plane
+providers, which are Apache 2.0, and it installs cert-manager, a CNI you supply
+and optionally kube-vip into the clusters it creates. Those keep their own
+licences; nothing here relicenses them.
