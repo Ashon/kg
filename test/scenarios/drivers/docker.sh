@@ -25,7 +25,10 @@ WORKER_REPLICAS="${WORKER_REPLICAS:-1}"
 
 NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.33.1}"
 HOST_IMAGE="${HOST_IMAGE:-kgenesis-host:scenarios}"
-NETWORK="${NETWORK:-kgenesis-scenarios}"
+# The bootstrap cluster is a kind cluster, and kind puts its node on a network
+# of its own. The provider reaches the hosts from inside that cluster, so the
+# hosts have to be on the same bridge or every one of them reads as unreachable.
+NETWORK="${NETWORK:-kind}"
 
 driver_name() { echo docker; }
 
@@ -163,7 +166,7 @@ driver_teardown() {
   for host in $(host_names); do
     docker rm -f "${host}" >/dev/null 2>&1 || true
   done
-  docker network rm "${NETWORK}" >/dev/null 2>&1 || true
+  # The network is kind's, not this suite's, so it is left alone.
 }
 
 driver_diagnostics() {
