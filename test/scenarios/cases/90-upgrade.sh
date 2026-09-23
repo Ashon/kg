@@ -29,10 +29,18 @@ upgrade_packages_to() {
   for host in $(host_names); do
     ip="$(driver_host_ip "${host}")"
     (
+      # Kept, not discarded. These run in the background so their exit codes go
+      # nowhere, and a machine that did not move is a rollout that never
+      # finishes an hour later.
       on_host "${ip}" "
         set -e
         export DEBIAN_FRONTEND=noninteractive
-        apt-mark unhold kubelet kubeadm kubectl >/dev/null
+
+        # A cloud image runs unattended-upgrades on a timer, and it holds the
+        # dpkg lock while it does. Waiting is what an operator would do.
+        apt_get() { apt-get -o DPkg::Lock::Timeout=300 \"\$@\"; }
+
+        apt-mark unhold kubelet kubeadm kubectl
 
         # Each Kubernetes minor signs its packages with its own key, so the
         # keyring is replaced rather than added to. Removed first: gpg stops on
@@ -45,25 +53,24 @@ upgrade_packages_to() {
         echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${minor}/deb/ /' \
           > /etc/apt/sources.list.d/kubernetes.list
 
-        apt-get update -qq
-        apt-get install -y -qq --allow-change-held-packages kubelet kubeadm kubectl
-        apt-mark hold kubelet kubeadm kubectl >/dev/null
-      " >/dev/null 2>&1 || true
+        apt_get update
+        apt_get install -y --allow-change-held-packages kubelet kubeadm kubectl
+        apt-mark hold kubelet kubeadm kubectl
+      " > "${WORKDIR}/upgrade-${host}.log" 2>&1 || true
     ) &
   done
   wait
 
-  # Checked rather than trusted. These run in the background so their exit codes
-  # go nowhere, and a host left on the old packages would otherwise only show up
-  # as a rollout that never finishes.
   for host in $(host_names); do
     local got
     got="$(on_host "$(driver_host_ip "${host}")" "kubeadm version -o short" 2>/dev/null | tr -d '[:space:]')"
     if [[ "${got}" == v${minor}.* ]]; then
       info "${host} ${got}"
-    else
-      stragglers="${stragglers} ${host}=${got:-unreachable}"
+      continue
     fi
+    stragglers="${stragglers} ${host}=${got:-unreachable}"
+    info "--- ${host} did not move:"
+    tail -n 12 "${WORKDIR}/upgrade-${host}.log" 2>/dev/null | sed 's/^/      /'
   done
   [[ -z "${stragglers}" ]] ||
     fail "these machines are not on ${minor}:${stragglers}"
