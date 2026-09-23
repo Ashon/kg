@@ -131,9 +131,14 @@ if [[ ! -f "${KEY}" ]]; then
 fi
 readonly PUBKEY="$(cat "${KEY}.pub")"
 
+# Both are stamped with the same image, so the CLI installs what was just built
+# and the cases exercise the path an operator walks rather than one held open by
+# a flag.
 log "Building kgenesis and the provider image"
-make -C "${ROOT}" build >/dev/null
-make -C "${ROOT}" docker-build IMAGE="${PROVIDER_IMAGE%:*}" IMAGE_TAG="${PROVIDER_IMAGE##*:}" >/dev/null
+make -C "${ROOT}" build \
+  IMAGE="${PROVIDER_IMAGE%:*}" IMAGE_TAG="${PROVIDER_IMAGE##*:}" >/dev/null
+make -C "${ROOT}" docker-build \
+  IMAGE="${PROVIDER_IMAGE%:*}" IMAGE_TAG="${PROVIDER_IMAGE##*:}" >/dev/null
 info "$(${KG} version)"
 
 driver_provision

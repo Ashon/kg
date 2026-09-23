@@ -26,7 +26,7 @@ scenario_multi_cluster() {
   write_config "${beta}"  beta  "${beta_endpoint}"  "${WORKDIR}/kindnet-beta.yaml"  2 1 2 1
 
   log "Bringing up the genesis node and building alpha"
-  kgc "${alpha}" init --provider-image "${PROVIDER_IMAGE}" --load-image --timeout "${TIMEOUT}"
+  kgc "${alpha}" init --timeout "${TIMEOUT}"
   kgc "${alpha}" cluster create --wait --timeout "${TIMEOUT}"
   kgc "${alpha}" kubeconfig
   KUBECONFIG="${alpha_kubeconfig}" kubectl wait --for=condition=Ready nodes --all --timeout=10m
@@ -35,7 +35,7 @@ scenario_multi_cluster() {
   # init adopts the genesis node that is already running and loads this
   # cluster's inventory beside the other one.
   log "Building beta on the same genesis node"
-  kgc "${beta}" init --provider-image "${PROVIDER_IMAGE}" --load-image --timeout "${TIMEOUT}"
+  kgc "${beta}" init --timeout "${TIMEOUT}"
   kgc "${beta}" cluster create --wait --timeout "${TIMEOUT}"
   kgc "${beta}" kubeconfig
   KUBECONFIG="${beta_kubeconfig}" kubectl wait --for=condition=Ready nodes --all --timeout=10m

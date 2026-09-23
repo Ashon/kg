@@ -6,7 +6,7 @@
 
 scenario_build() {
   log "Bringing up the genesis node"
-  kg init --provider-image "${PROVIDER_IMAGE}" --load-image --timeout "${TIMEOUT}"
+  kg init --timeout "${TIMEOUT}"
 
   log "Creating the cluster"
   kg cluster create --wait --timeout "${TIMEOUT}"
