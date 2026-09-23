@@ -31,8 +31,16 @@ scenario_build() {
   endpoint_answers "${WORKLOAD}" "${LAB_ENDPOINT}"
   info "the API server answers on ${LAB_ENDPOINT}"
 
-  # The spare is in the fleet but not in this cluster's configuration, so it
-  # should not have been touched.
-  host_is_clean "kg-worker-${WORKER_HOSTS}"
-  info "the spare host is untouched"
+  # The pool holds more hosts than the cluster asked for, and which ones it took
+  # is its own choice. What has to be true is that the rest are still free, and
+  # that nothing ran on them.
+  local spares host want
+  want="$((WORKER_HOSTS - WORKER_REPLICAS))"
+  spares="$(free_host_names worker)"
+  [[ "$(echo "${spares}" | grep -c .)" == "${want}" ]] ||
+    fail "expected ${want} worker host(s) still free, got: ${spares//$'\n'/ }"
+  for host in ${spares}; do
+    host_is_clean "${host}"
+  done
+  info "the spare host(s) are untouched: ${spares//$'\n'/ }"
 }

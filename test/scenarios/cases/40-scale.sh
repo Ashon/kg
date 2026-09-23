@@ -5,8 +5,11 @@
 # The worker pool grows onto the spare host and gives it back.
 
 scenario_scale() {
-  local spare="kg-worker-${WORKER_HOSTS}"
-  local grown="${WORKDIR}/grown.yaml"
+  local grown="${WORKDIR}/grown.yaml" spare
+  # Whichever worker host the cluster left alone, which is its choice and not a
+  # name this case can know.
+  spare="$(free_host_names worker | head -1)"
+  [[ -n "${spare}" ]] || fail "no worker host is free to grow onto"
 
   log "Growing the worker pool onto ${spare}"
   # The same pool, one more worker asked of it.

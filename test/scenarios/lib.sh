@@ -289,6 +289,16 @@ column_of() {
   ' | sort -u
 }
 
+# free_host_names lists the hosts of one role that nothing has claimed. Which
+# hosts a cluster takes is the provider's choice, so a case that wants the spare
+# has to ask which one it is rather than assume.
+free_host_names() {
+  KUBECONFIG="${STATE}/bootstrap.kubeconfig" kubectl get hosts -A \
+    -l "kgenesis.io/role=$1" \
+    -o jsonpath='{range .items[*]}{.metadata.name} {.metadata.labels.kgenesis\.io/claimed-by}{"\n"}{end}' 2>/dev/null |
+    awk '$2 == "" { print $1 }' | sort
+}
+
 # free_hosts_by_role counts the hosts nothing has claimed, which is what a
 # handover needs one of per role and what a rollout moves onto.
 free_hosts_by_role() {
