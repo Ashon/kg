@@ -75,9 +75,18 @@ jobs:
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           notes="$(mktemp)"
+          # The tag before this one, so the notes can say what is in the release
+          # rather than only how to install it.
+          previous="$(git describe --tags --abbrev=0 "${VERSION}^" 2>/dev/null || true)"
           {
+            if [ -n "${previous}" ]; then
+              printf '## Changes since %s\n\n' "${previous}"
+              git log --no-merges --format='- %s' "${previous}..${VERSION}"
+              printf '\n'
+            fi
             printf 'Install the CLI:\n\n'
             printf '```console\n'
             printf 'os=$(uname -s | tr A-Z a-z)\n'
