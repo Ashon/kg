@@ -111,14 +111,18 @@ write_cni() {
 
 # write_config renders a genesis configuration.
 #
-#   write_config <path> <name> <endpoint> <cni> <cp first> <cp count> <worker first> <worker count>
+#   write_config <path> <name> <endpoint> <cni> \
+#       <cp first> <cp count> <worker first> <worker count> [cp replicas] [worker replicas]
 #
 # The host ranges are what let two clusters draw from disjoint parts of one
 # fleet, which is the only way to tell a namespace boundary that works from one
-# that merely has not been tested.
+# that merely has not been tested. The replica counts default to the host counts
+# and are given separately when a configuration exists to list hosts rather than
+# to build anything.
 write_config() {
   local path="$1" name="$2" endpoint="$3" cni="$4"
   local cp_first="$5" cp_count="$6" worker_first="$7" worker_count="$8" i
+  local cp_replicas="${9:-$6}" worker_replicas="${10:-$8}"
   {
     cat <<EOF
 apiVersion: kgenesis.io/v1alpha1
@@ -130,7 +134,7 @@ cluster:
   controlPlaneEndpoint:
     host: ${endpoint}
     port: 6443
-  controlPlaneReplicas: ${cp_count}
+  controlPlaneReplicas: ${cp_replicas}
   network:
     podCIDR: 10.244.0.0/16
     serviceCIDR: 10.96.0.0/12
@@ -142,7 +146,7 @@ $(driver_cluster_extra)
 
 workers:
   - name: default
-    replicas: ${worker_count}
+    replicas: ${worker_replicas}
 
 ssh:
   user: root
