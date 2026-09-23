@@ -264,3 +264,24 @@ pinned_key() {
   KUBECONFIG="${STATE}/bootstrap.kubeconfig" kubectl get host "$1" -n lab \
     -o jsonpath='{.status.observedPublicKey}' 2>/dev/null
 }
+
+# column_of prints one column of a padded table, found by where its header
+# starts. Counting fields would not do: the cells hold spaces, and a column
+# added later moves every one after it.
+#
+#   column_of "<report>" RUNTIME KUBEADM   the cell between the two headers
+#   column_of "<report>" KUBEADM ""        the last column
+column_of() {
+  echo "$1" | awk -v from="$2" -v to="$3" '
+    NR == 1 {
+      start = index($0, from)
+      stop = (to == "") ? 0 : index($0, to)
+      next
+    }
+    start > 0 && NF > 4 {
+      cell = (stop > 0) ? substr($0, start, stop - start) : substr($0, start)
+      sub(/ +$/, "", cell)
+      if (cell != "") print cell
+    }
+  ' | sort -u
+}

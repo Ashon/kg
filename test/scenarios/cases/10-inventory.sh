@@ -25,15 +25,26 @@ scenario_inventory() {
       fail "${host} is missing from the inventory report"
   done
 
-  # The runtime is read off the host and reported as a name and a version. It
-  # used to carry the whole --version line, which is how a broken quoting in the
-  # probe script stayed invisible.
-  local runtimes
-  runtimes="$(echo "${report}" | awk 'NR > 1 && NF > 6 { print $(NF-1), $NF }' | sort -u)"
+  # Read by where the header says the column is, rather than by counting fields
+  # from the end: the cells hold spaces, and a column added later would silently
+  # move the ones after it.
+  local runtimes kubeadms
+  runtimes="$(column_of "${report}" RUNTIME KUBEADM)"
+  kubeadms="$(column_of "${report}" KUBEADM "")"
+
+  # The runtime is a name and a version. It used to carry the whole --version
+  # line, which is how a broken quoting in the probe script stayed invisible.
   echo "${runtimes}" | grep -qE '^[a-z]+ v?[0-9]+\.[0-9]+' ||
     fail "the runtime column does not read as a name and a version:
 $(echo "${runtimes}" | sed 's/^/      /')"
   info "runtime: $(echo "${runtimes}" | head -1)"
+
+  # kgenesis does not install kubeadm, so the host decides which Kubernetes it
+  # can build and the report has to say which that is.
+  echo "${kubeadms}" | grep -qE '^v[0-9]+\.[0-9]+' ||
+    fail "the kubeadm column does not read as a version:
+$(echo "${kubeadms}" | sed 's/^/      /')"
+  info "kubeadm: $(echo "${kubeadms}" | head -1)"
 
   log "Checking that an unreachable host is reported as unreachable"
   local probe="${WORKDIR}/dead.yaml"
