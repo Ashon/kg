@@ -16,14 +16,14 @@ scenario_multi_cluster() {
   info "$(host_names | wc -l | tr -d ' ') host(s) wiped"
 
   local alpha="${WORKDIR}/alpha.yaml" beta="${WORKDIR}/beta.yaml"
-  local alpha_vip="${SUBNET}.201" beta_vip="${SUBNET}.202"
+  local alpha_endpoint="$(driver_endpoint 2 kg-cp-1)" beta_endpoint="$(driver_endpoint 3 kg-cp-2)"
   local alpha_kubeconfig="${STATE}/alpha.kubeconfig"
   local beta_kubeconfig="${STATE}/beta.kubeconfig"
 
-  write_cni "${WORKDIR}/kindnet-alpha.yaml" "${alpha_vip}:6443"
-  write_cni "${WORKDIR}/kindnet-beta.yaml" "${beta_vip}:6443"
-  write_config "${alpha}" alpha "${alpha_vip}" "${WORKDIR}/kindnet-alpha.yaml" 1 1 1 1
-  write_config "${beta}"  beta  "${beta_vip}"  "${WORKDIR}/kindnet-beta.yaml"  2 1 2 1
+  write_cni "${WORKDIR}/kindnet-alpha.yaml" "${alpha_endpoint}:6443"
+  write_cni "${WORKDIR}/kindnet-beta.yaml" "${beta_endpoint}:6443"
+  write_config "${alpha}" alpha "${alpha_endpoint}" "${WORKDIR}/kindnet-alpha.yaml" 1 1 1 1
+  write_config "${beta}"  beta  "${beta_endpoint}"  "${WORKDIR}/kindnet-beta.yaml"  2 1 2 1
 
   log "Bringing up the genesis node and building alpha"
   kgc "${alpha}" init --provider-image "${PROVIDER_IMAGE}" --load-image --timeout "${TIMEOUT}"
@@ -52,9 +52,9 @@ scenario_multi_cluster() {
   local alpha_nodes beta_nodes
   alpha_nodes="$(KUBECONFIG="${alpha_kubeconfig}" kubectl get nodes -o name | sort | tr '\n' ' ')"
   beta_nodes="$(KUBECONFIG="${beta_kubeconfig}" kubectl get nodes -o name | sort | tr '\n' ' ')"
-  [[ "${alpha_nodes}" == "node/lima-kg-cp-1 node/lima-kg-worker-1 " ]] ||
+  [[ "${alpha_nodes}" == "node/$(driver_node_name kg-cp-1) node/$(driver_node_name kg-worker-1) " ]] ||
     fail "alpha took hosts it was not given: ${alpha_nodes}"
-  [[ "${beta_nodes}" == "node/lima-kg-cp-2 node/lima-kg-worker-2 " ]] ||
+  [[ "${beta_nodes}" == "node/$(driver_node_name kg-cp-2) node/$(driver_node_name kg-worker-2) " ]] ||
     fail "beta took hosts it was not given: ${beta_nodes}"
   info "each cluster drew only from its own namespace"
 

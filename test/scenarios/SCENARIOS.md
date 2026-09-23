@@ -3,35 +3,52 @@ SPDX-FileCopyrightText: 2026 Ashon
 SPDX-License-Identifier: MIT
 -->
 
-# Virtual machine scenarios
+# Scenarios
 
 Each scenario is one path an operator actually takes, and each asserts what that
-path is supposed to leave behind. They share one fleet of virtual machines and
-run in order, because every one of them depends on the state the previous one
-ends in.
+path is supposed to leave behind. They share one fleet of machines and run in
+order, because every one of them depends on the state the previous one ends in.
 
-Run them with `test/vm/run.sh`, or a subset by name:
+Run them with `test/scenarios/run.sh`, or a subset by name:
 
 ```console
-$ test/vm/run.sh                       # all of them, in order
-$ test/vm/run.sh build vip-failover    # two of them, on an existing fleet
-$ REUSE=1 test/vm/run.sh scale         # skip creating and provisioning the VMs
+$ test/scenarios/run.sh                      # all of them, in order
+$ test/scenarios/run.sh build vip-failover   # two of them, on an existing fleet
+$ DRIVER=docker test/scenarios/run.sh        # against containers
+$ REUSE=1 test/scenarios/run.sh scale        # skip creating the machines
 ```
 
-## The fleet
+## The fleets
 
-Six machines on one socket_vmnet segment, `192.168.105.0/24`. Three are
-control planes, two are workers, and one is spare so a scale-out has somewhere
-to go. The Mac is the genesis node. The control plane VIP is `192.168.105.200`.
+A case says what it needs from the machines it runs on, and a fleet says what it
+can give. A case that needs what a fleet cannot give is skipped and reported as
+skipped, because a case that quietly asserts less than it claims is worse than
+no case at all.
 
-| Host          | Address           | Role          |
-| ------------- | ----------------- | ------------- |
-| `kg-cp-1`     | `192.168.105.11`  | control-plane |
-| `kg-cp-2`     | `192.168.105.12`  | control-plane |
-| `kg-cp-3`     | `192.168.105.13`  | control-plane |
-| `kg-worker-1` | `192.168.105.14`  | worker        |
-| `kg-worker-2` | `192.168.105.15`  | worker        |
-| `kg-worker-3` | `192.168.105.16`  | worker, spare |
+| Driver   | Machines                       | Gives             | Runs where |
+| -------- | ------------------------------ | ----------------- | ---------- |
+| `lima`   | Lima virtual machines          | `vip`, `reboot`   | macOS      |
+| `docker` | containers on one docker bridge| neither           | CI, Linux  |
+
+kgenesis reaches a host over SSH and nothing else, so a container that answers
+on port 22 and runs kubeadm is indistinguishable from a machine as far as the
+provider is concerned. What a container cannot give is a kernel and a network
+stack of its own, which is what kube-vip's election needs and what makes a
+stopped machine a machine that went away rather than one that paused.
+
+## The machines
+
+Hosts are named `kg-cp-N` and `kg-worker-N`. There are more of them than any one
+cluster asks for: a scale-out needs a host free to move onto, and two clusters
+need a control plane host each.
+
+| Driver   | Control planes | Workers | Cluster asks for   | Endpoint                    |
+| -------- | -------------- | ------- | ------------------ | --------------------------- |
+| `lima`   | 3              | 3       | 3 control, 2 worker| a VIP on `192.168.105.0/24` |
+| `docker` | 2              | 2       | 1 control, 1 worker| the first control plane     |
+
+The genesis node is the machine running the suite: this Mac under `lima`, the
+runner under `docker`.
 
 ## The paths
 

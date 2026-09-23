@@ -115,24 +115,24 @@ docker-push: ## Push the provider container image
 ##@ End to end
 
 .PHONY: e2e
-e2e: ## Build a real cluster from container hosts and release it (needs Docker)
-	./test/e2e/run.sh
+e2e: ## Run the scenarios against container hosts (needs Docker)
+	DRIVER=docker ./test/scenarios/run.sh
 
 .PHONY: e2e-keep
 e2e-keep: ## Same as e2e, but leave the clusters and hosts running for inspection
-	KEEP=1 ./test/e2e/run.sh
+	KEEP=1 DRIVER=docker ./test/scenarios/run.sh
 
 .PHONY: vm-test
-vm-test: ## Run every scenario on real VMs; see test/vm/SCENARIOS.md (macOS, needs lima)
-	./test/vm/run.sh
+vm-test: ## Run every scenario on real VMs; see test/scenarios/SCENARIOS.md (macOS, needs lima)
+	./test/scenarios/run.sh
 
 .PHONY: vm-test-keep
 vm-test-keep: ## Same as vm-test, but leave the VMs running for inspection
-	KEEP=1 ./test/vm/run.sh
+	KEEP=1 ./test/scenarios/run.sh
 
 .PHONY: vm-test-reuse
 vm-test-reuse: ## Same as vm-test against the VMs already running, skipping provisioning
-	REUSE=1 ./test/vm/run.sh
+	REUSE=1 ./test/scenarios/run.sh
 
 .PHONY: e2e-cni-manifest
 e2e-cni-manifest: ## Re-extract the vendored kindnet manifest the e2e test installs

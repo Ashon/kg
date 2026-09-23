@@ -11,9 +11,9 @@ scenario_release() {
 
   log "Checking the released cluster still serves"
   KUBECONFIG="${WORKLOAD}" kubectl get nodes -o wide
-  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_COUNT + WORKER_COUNT))"
-  vip_answers "${WORKLOAD}"
-  info "every node is still Ready and the VIP still answers"
+  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_REPLICAS + WORKER_REPLICAS))"
+  endpoint_answers "${WORKLOAD}" "${LAB_ENDPOINT}"
+  info "every node is still Ready and the endpoint still answers"
 
   KUBECONFIG="${WORKLOAD}" kubectl get namespace kgenesis-system >/dev/null 2>&1 &&
     fail "the released cluster is running the kgenesis provider"

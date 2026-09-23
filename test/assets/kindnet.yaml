@@ -8,7 +8,7 @@
 # already inside the kindest/node image the fake hosts are built from.
 # Source image: kindest/node:v1.33.1
 #
-# __CONTROL_PLANE_ENDPOINT__ is substituted by test/e2e/run.sh. kindnet reaches
+# __CONTROL_PLANE_ENDPOINT__ is substituted by test/scenarios/lib.sh. kindnet reaches
 # the API server directly rather than through its Service, because the Service
 # needs kube-proxy and kube-proxy needs a working network. Leaving the address
 # of the cluster this was extracted from would point it at a host that does not

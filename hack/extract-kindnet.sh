@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Ashon
 # SPDX-License-Identifier: MIT
 
-# Extracts kindnet from a throwaway kind cluster into test/e2e/kindnet.yaml.
+# Extracts kindnet from a throwaway kind cluster into test/assets/kindnet.yaml.
 #
 # The end-to-end test needs a CNI for the cluster it builds. kindnet suits it
 # better than a chart: kindest/node already carries the kindnetd image, so the
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-out="${root}/test/e2e/kindnet.yaml"
+out="${root}/test/assets/kindnet.yaml"
 node_image="${NODE_IMAGE:-kindest/node:v1.33.1}"
 cluster="kindnet-extract-$$"
 

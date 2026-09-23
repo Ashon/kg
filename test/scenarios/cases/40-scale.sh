@@ -5,20 +5,20 @@
 # The worker pool grows onto the spare host and gives it back.
 
 scenario_scale() {
-  local spare="kg-worker-$(worker_total)"
+  local spare="kg-worker-${WORKER_HOSTS}"
   local grown="${WORKDIR}/grown.yaml"
 
   log "Growing the worker pool onto ${spare}"
-  write_config "${grown}" lab "${VIP}" "${WORKDIR}/kindnet.yaml" \
-    1 "${CONTROL_PLANE_COUNT}" 1 "$(worker_total)"
+  write_config "${grown}" lab "${LAB_ENDPOINT}" "${WORKDIR}/kindnet.yaml" \
+    1 "${CONTROL_PLANE_REPLICAS}" 1 "${WORKER_HOSTS}"
   kgc "${grown}" cluster create --wait --timeout "${TIMEOUT}"
 
   # The machine is Running once it has joined; the node turns Ready once the CNI
   # has started on it, which is a moment later.
   KUBECONFIG="${WORKLOAD}" kubectl wait --for=condition=Ready nodes --all --timeout=10m
 
-  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_COUNT + $(worker_total)))"
-  KUBECONFIG="${WORKLOAD}" kubectl get node "lima-${spare}" --no-headers |
+  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_REPLICAS + WORKER_HOSTS))"
+  KUBECONFIG="${WORKLOAD}" kubectl get node "$(driver_node_name "${spare}")" --no-headers |
     grep -q ' Ready' || fail "${spare} did not join the cluster"
   nodes_advertise_their_own_address "${WORKLOAD}"
   info "${spare} joined and carries its own address"
@@ -26,7 +26,7 @@ scenario_scale() {
   log "Shrinking the pool back"
   kg cluster create --wait --timeout "${TIMEOUT}"
 
-  local attempt nodes want="$((CONTROL_PLANE_COUNT + WORKER_COUNT))"
+  local attempt nodes want="$((CONTROL_PLANE_REPLICAS + WORKER_REPLICAS))"
   for ((attempt = 1; attempt <= 60; attempt++)); do
     nodes="$(KUBECONFIG="${WORKLOAD}" kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')"
     [[ "${nodes}" == "${want}" ]] && break

@@ -24,9 +24,9 @@ scenario_rebuild() {
   kg kubeconfig
   KUBECONFIG="${WORKLOAD}" kubectl wait --for=condition=Ready nodes --all --timeout=10m
 
-  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_COUNT + WORKER_COUNT))"
+  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_REPLICAS + WORKER_REPLICAS))"
   nodes_advertise_their_own_address "${WORKLOAD}"
   nodes_carry_provider_ids "${WORKLOAD}"
-  vip_answers "${WORKLOAD}"
+  endpoint_answers "${WORKLOAD}" "${LAB_ENDPOINT}"
   info "the same hardware carries a second cluster"
 }

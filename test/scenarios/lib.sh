@@ -2,102 +2,81 @@
 # SPDX-FileCopyrightText: 2026 Ashon
 # SPDX-License-Identifier: MIT
 #
-# Shared ground for the virtual machine scenarios: the fleet's shape, the
-# configuration kgenesis is given, and the assertions the scenarios lean on.
-# Sourced by run.sh, which sources the scenarios after it.
+# Shared ground for the scenarios: the fleet's shape, the configuration kgenesis
+# is given, and the assertions the cases lean on. Everything machine-specific is
+# behind the driver, so the same case runs against virtual machines and against
+# containers and asserts the same things.
+#
+# Sourced by run.sh, after the driver and before the cases.
 
 K8S_MINOR="${K8S_MINOR:-1.33}"
-CONTROL_PLANE_COUNT="${CONTROL_PLANE_COUNT:-3}"
-WORKER_COUNT="${WORKER_COUNT:-2}"
-# One host beyond what the cluster uses, so a scale-out has somewhere to go.
-SPARE_COUNT="${SPARE_COUNT:-1}"
-PROVIDER_IMAGE="${PROVIDER_IMAGE:-kgenesis:vm}"
+
+# How many machines of each role exist, and how many of them the lab cluster
+# asks for. They are not the same number: a scenario needs a host free to scale
+# onto, and multi-cluster needs a control plane host per cluster.
+CONTROL_PLANE_HOSTS="${CONTROL_PLANE_HOSTS:-3}"
+CONTROL_PLANE_REPLICAS="${CONTROL_PLANE_REPLICAS:-3}"
+WORKER_HOSTS="${WORKER_HOSTS:-3}"
+WORKER_REPLICAS="${WORKER_REPLICAS:-2}"
+
+PROVIDER_IMAGE="${PROVIDER_IMAGE:-kgenesis:scenarios}"
 TIMEOUT="${TIMEOUT:-40m}"
 KEEP="${KEEP:-0}"
 REUSE="${REUSE:-0}"
 
-# The segment socket_vmnet serves. vmnet's DHCP does not answer on every macOS
-# host and the switch works regardless, so addresses are assigned rather than
-# leased. The VIP sits well above the hosts.
-readonly SUBNET="192.168.105"
-readonly VIP="${SUBNET}.200"
-readonly NETWORK_IFACE="lima0"
-# Nothing is ever given this address. The inventory scenario points a host at it
-# to see an unreachable machine reported as unreachable.
-readonly DEAD_ADDRESS="${SUBNET}.99"
+# Nothing is ever given this address. The inventory case points a host at it to
+# see an unreachable machine reported as unreachable.
+DEAD_ADDRESS="${DEAD_ADDRESS:-203.0.113.9}"
 
 log()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
+skip() { printf '    \033[33mskipped: %s\033[0m\n' "$*"; }
 fail() { printf '\n\033[31mFAILED: %s\033[0m\n' "$*" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # The fleet
 
-# worker_total is every worker machine that exists, including the spare that no
-# cluster claims until the scale scenario asks for it.
-worker_total() { echo $((WORKER_COUNT + SPARE_COUNT)); }
-
 host_names() {
   local i
-  for ((i = 1; i <= CONTROL_PLANE_COUNT; i++)); do echo "kg-cp-${i}"; done
-  for ((i = 1; i <= $(worker_total); i++)); do echo "kg-worker-${i}"; done
+  for ((i = 1; i <= CONTROL_PLANE_HOSTS; i++)); do echo "kg-cp-${i}"; done
+  for ((i = 1; i <= WORKER_HOSTS; i++)); do echo "kg-worker-${i}"; done
 }
 
-# Control planes take .11 upwards, workers continue after them.
-host_ip() {
-  local name="$1" index
-  case "${name}" in
-    kg-cp-*)     index="${name##*-}"; echo "${SUBNET}.$((10 + index))" ;;
-    kg-worker-*) index="${name##*-}"; echo "${SUBNET}.$((10 + CONTROL_PLANE_COUNT + index))" ;;
-    *)           fail "unknown host ${name}" ;;
-  esac
-}
-
-vm_exists() {
-  local existing="$1" name="$2"
-  # Compared in the shell rather than with grep: whether `grep -qx` matches on a
-  # pipe turned out to depend on which grep is on PATH.
-  case $'\n'"${existing}"$'\n' in
-    *$'\n'"${name}"$'\n'*) return 0 ;;
+# driver_supports reports whether the fleet can do something a case needs. A
+# case that needs what this fleet cannot give is skipped and said to be skipped,
+# because a case that quietly asserts less is worse than no case.
+driver_supports() {
+  case " $(driver_capabilities) " in
+    *" $1 "*) return 0 ;;
     *) return 1 ;;
   esac
 }
 
-vip_holder() {
-  local host
-  for host in $(host_names | grep cp); do
-    if limactl shell "${host}" -- ip -4 -o addr show "${NETWORK_IFACE}" 2>/dev/null |
-        grep -q "${VIP}"; then
-      echo "${host}"
-      return 0
-    fi
-  done
-  return 1
-}
-
-# on_host runs a command as root on one machine over the same SSH path kgenesis
-# uses, so a scenario checks what kgenesis would see rather than what limactl can
-# reach through its own agent.
+# on_host runs a command as root over the same SSH path kgenesis uses, so a case
+# checks what kgenesis would see rather than what the driver can reach through
+# its own agent.
 on_host() {
   local ip="$1"; shift
   ssh -i "${KEY}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
     -o ConnectTimeout=10 -o LogLevel=ERROR "root@${ip}" "$@"
 }
 
-# wipe_hosts undoes a kubeadm bootstrap everywhere, including the VIP that
-# kube-vip put on an interface and kubeadm reset knows nothing about. Scenarios
-# that need an empty fleet but no longer have a genesis node to ask use this.
+# wipe_hosts undoes a kubeadm bootstrap everywhere, including an address kube-vip
+# put on an interface that kubeadm reset knows nothing about. Cases that need an
+# empty fleet but no longer have a genesis node to ask use this.
 wipe_hosts() {
-  local host ip
+  local host ip vips
+  vips="$(driver_vip_addresses | paste -sd'|' -)"
+  [[ -z "${vips}" ]] && vips="__no_vip_here__"
   for host in $(host_names); do
-    ip="$(host_ip "${host}")"
+    ip="$(driver_host_ip "${host}")"
     (
       on_host "${ip}" '
         kubeadm reset --force >/dev/null 2>&1 || true
         systemctl stop kubelet >/dev/null 2>&1 || true
         crictl rm --force --all >/dev/null 2>&1 || true
         for link in cni0 flannel.1 kube-ipvs0; do ip link delete "$link" 2>/dev/null || true; done
-        ip -o -4 addr show | awk -v vip="'"${VIP}"'" "\$4 ~ \"^\"vip\"/\" { print \$2, \$4 }" |
+        ip -o -4 addr show | grep -E "'"${vips}"'" | awk "{ print \$2, \$4 }" |
           while read -r iface addr; do ip addr del "$addr" dev "$iface" 2>/dev/null || true; done
         rm -rf /etc/cni/net.d /var/lib/cni /etc/kubernetes /var/lib/etcd \
                /run/kubeadm /run/cluster-api /var/lib/kgenesis
@@ -108,7 +87,7 @@ wipe_hosts() {
 
   # Every command above is best effort, so a wipe that reached nothing at all -
   # a key that is no longer authorised, a machine that is down - would look
-  # exactly like one that worked. The scenario after this one would then fail
+  # exactly like one that worked. The case after this one would then fail
   # somewhere far away from the cause.
   for host in $(host_names); do
     host_is_clean "${host}"
@@ -124,7 +103,7 @@ wipe_hosts() {
 write_cni() {
   local path="$1" endpoint="$2"
   sed "s#__CONTROL_PLANE_ENDPOINT__#${endpoint}#" \
-    "${ROOT}/test/e2e/kindnet.yaml" > "${path}"
+    "${ROOT}/test/assets/kindnet.yaml" > "${path}"
   grep -q '__CONTROL_PLANE_ENDPOINT__' "${path}" &&
     fail "the CNI manifest still has an unsubstituted placeholder"
   return 0
@@ -132,13 +111,13 @@ write_cni() {
 
 # write_config renders a genesis configuration.
 #
-#   write_config <path> <name> <vip> <cni> <cp first> <cp count> <worker first> <worker count>
+#   write_config <path> <name> <endpoint> <cni> <cp first> <cp count> <worker first> <worker count>
 #
 # The host ranges are what let two clusters draw from disjoint parts of one
 # fleet, which is the only way to tell a namespace boundary that works from one
 # that merely has not been tested.
 write_config() {
-  local path="$1" name="$2" vip="$3" cni="$4"
+  local path="$1" name="$2" endpoint="$3" cni="$4"
   local cp_first="$5" cp_count="$6" worker_first="$7" worker_count="$8" i
   {
     cat <<EOF
@@ -149,18 +128,13 @@ cluster:
   name: ${name}
   kubernetesVersion: ${K8S_VERSION}
   controlPlaneEndpoint:
-    host: ${vip}
+    host: ${endpoint}
     port: 6443
   controlPlaneReplicas: ${cp_count}
   network:
     podCIDR: 10.244.0.0/16
     serviceCIDR: 10.96.0.0/12
-
-  # The whole reason for running on virtual machines: control planes electing a
-  # VIP between them, which a shared kernel cannot show.
-  virtualIP:
-    enabled: true
-    interface: ${NETWORK_IFACE}
+$(driver_cluster_extra)
 
   cni:
     manifests:
@@ -179,10 +153,10 @@ ssh:
 hosts:
 EOF
     for ((i = cp_first; i < cp_first + cp_count; i++)); do
-      echo "  - {name: kg-cp-${i}, address: $(host_ip "kg-cp-${i}"), role: control-plane}"
+      echo "  - {name: kg-cp-${i}, address: $(driver_host_ip "kg-cp-${i}"), role: control-plane}"
     done
     for ((i = worker_first; i < worker_first + worker_count; i++)); do
-      echo "  - {name: kg-worker-${i}, address: $(host_ip "kg-worker-${i}"), role: worker}"
+      echo "  - {name: kg-worker-${i}, address: $(driver_host_ip "kg-worker-${i}"), role: worker}"
     done
   } > "${path}"
 }
@@ -203,15 +177,13 @@ every_node_ready() {
     fail "expected ${want} Ready node(s), found ${got}"
 }
 
-# nodes_advertise_their_own_address is the check that a shared kernel cannot
-# make. Behind a per-machine NAT every node's default route carries the same
-# address, so a kubelet left to choose reports an address that belongs to
-# nobody, and Nodes collide on it.
+# nodes_advertise_their_own_address is what a kubelet left to itself gets wrong.
+# It picks the address of the default route, and behind a per-machine NAT that
+# is the same address on every node, so the Nodes collide on it.
 nodes_advertise_their_own_address() {
-  local kubeconfig="$1" addresses
+  local kubeconfig="$1" addresses total distinct
   addresses="$(KUBECONFIG="${kubeconfig}" kubectl get nodes \
     -o jsonpath='{range .items[*]}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}')"
-  local total distinct
   total="$(echo "${addresses}" | grep -c .)"
   distinct="$(echo "${addresses}" | sort -u | grep -c .)"
   [[ "${total}" == "${distinct}" ]] ||
@@ -235,29 +207,32 @@ nodes_carry_provider_ids() {
   ((missing == 0)) || fail "a node is missing its kgenesis provider ID"
 }
 
-# vip_answers fails unless the API server is reachable on the VIP.
-vip_answers() {
-  local kubeconfig="$1" attempts="${2:-1}" attempt
+# endpoint_answers fails unless the API server is reachable on the address every
+# node joins through.
+endpoint_answers() {
+  local kubeconfig="$1" endpoint="$2" attempts="${3:-1}" attempt
   for ((attempt = 1; attempt <= attempts; attempt++)); do
-    if KUBECONFIG="${kubeconfig}" kubectl --server "https://${VIP}:6443" \
+    if KUBECONFIG="${kubeconfig}" kubectl --server "https://${endpoint}:6443" \
         get --raw /healthz >/dev/null 2>&1; then
       return 0
     fi
     sleep 10
   done
-  fail "the API server did not answer on the VIP ${VIP}"
+  fail "the API server did not answer on ${endpoint}"
 }
 
 # host_is_clean fails unless a host carries nothing from a previous cluster.
 host_is_clean() {
-  local name="$1" ip leftovers
-  ip="$(host_ip "${name}")"
+  local name="$1" ip leftovers vips
+  ip="$(driver_host_ip "${name}")"
+  vips="$(driver_vip_addresses | paste -sd'|' -)"
+  [[ -z "${vips}" ]] && vips="__no_vip_here__"
   leftovers="$(on_host "${ip}" '
     for path in /etc/kubernetes/admin.conf /etc/kubernetes/kubelet.conf; do
       [ -e "$path" ] && echo "$path"
     done
     [ -n "$(ls -A /var/lib/etcd 2>/dev/null)" ] && echo /var/lib/etcd
-    ip -o -4 addr show | awk "\$4 ~ /^'"${VIP//./\\.}"'\\// { print \"vip \" \$2 }"
+    ip -o -4 addr show | grep -E "'"${vips}"'" | awk "{ print \"vip \" \$2 }"
     true
   ' 2>/dev/null)"
   [[ -z "${leftovers}" ]] ||
@@ -267,7 +242,7 @@ $(echo "${leftovers}" | sed 's/^/      /')"
 
 # hosts_in_phase fails unless every host in the pool reports the phase given.
 hosts_in_phase() {
-  local want="$1" line name phase bad=0
+  local want="$1" name phase bad=0
   while read -r name phase; do
     [[ -z "${name}" ]] && continue
     if [[ "${phase}" != "${want}" ]]; then

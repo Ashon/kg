@@ -4,31 +4,36 @@
 #
 # The VIP outlives the machine holding it, and that machine comes back.
 
+# A VIP needs machines that do not share a kernel or a network stack, and a stop
+# has to be a machine going away rather than a container pausing.
+requires_vip_failover() { echo "vip reboot"; }
+
 scenario_vip_failover() {
-  local holder new_holder attempt
-  holder="$(vip_holder)" || fail "no control plane holds ${VIP}"
-  info "${VIP} is held by ${holder}"
+  local holder new_holder attempt vip
+  vip="${LAB_ENDPOINT}"
+  holder="$(vip_holder)" || fail "no control plane holds ${vip}"
+  info "${vip} is held by ${holder}"
 
   log "Taking ${holder} down to see the VIP move"
-  limactl stop -f "${holder}" >/dev/null 2>&1
+  driver_stop "${holder}"
 
   for ((attempt = 1; attempt <= 60; attempt++)); do
     if new_holder="$(vip_holder)" && [[ "${new_holder}" != "${holder}" ]]; then
-      info "${VIP} moved to ${new_holder} after $((attempt * 5))s"
+      info "${vip} moved to ${new_holder} after $((attempt * 5))s"
       break
     fi
-    ((attempt == 60)) && fail "${VIP} did not move off ${holder} within 5 minutes"
+    ((attempt == 60)) && fail "${vip} did not move off ${holder} within 5 minutes"
     sleep 5
   done
 
   log "Checking the API server still answers on the VIP"
-  vip_answers "${WORKLOAD}" 30
-  info "the surviving control plane answers on ${VIP}"
+  endpoint_answers "${WORKLOAD}" "${vip}" 30
+  info "the surviving control plane answers on ${vip}"
 
   # A failover that cannot be undone is half a test: the cluster has to survive
   # the machine coming back as well as going away.
   log "Bringing ${holder} back"
-  limactl start "${holder}" >/dev/null 2>&1
+  driver_start "${holder}"
 
   # These machines get a fresh cloud-init identity on every start, so the one
   # that just came back presents a different SSH host key. Real hardware does
@@ -45,15 +50,15 @@ scenario_vip_failover() {
   info "${holder} will pin the key it presents next"
 
   for ((attempt = 1; attempt <= 60; attempt++)); do
-    if KUBECONFIG="${WORKLOAD}" kubectl get node "lima-${holder}" \
+    if KUBECONFIG="${WORKLOAD}" kubectl get node "$(driver_node_name "${holder}")" \
         --no-headers 2>/dev/null | grep -q ' Ready'; then
-      info "lima-${holder} rejoined after $((attempt * 10))s"
+      info "$(driver_node_name "${holder}") rejoined after $((attempt * 10))s"
       break
     fi
-    ((attempt == 60)) && fail "lima-${holder} did not return to Ready within 10 minutes"
+    ((attempt == 60)) && fail "$(driver_node_name "${holder}") did not return to Ready within 10 minutes"
     sleep 10
   done
 
-  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_COUNT + WORKER_COUNT))"
-  vip_answers "${WORKLOAD}" 6
+  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_REPLICAS + WORKER_REPLICAS))"
+  endpoint_answers "${WORKLOAD}" "${vip}" 6
 }

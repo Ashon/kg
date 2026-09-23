@@ -19,13 +19,13 @@ FIX=0
 #   zz_generated.deepcopy.go   controller-gen writes it from hack/boilerplate.go.txt
 #   config/crd, config/rbac    controller-gen output, derived from headered sources
 #   internal/assets/*.yaml     assembled by hack/build-components.sh, which writes its own
-#   test/e2e/kindnet.yaml      vendored from kind, which is Apache 2.0, not ours to relicense
+#   test/assets/kindnet.yaml   vendored from kind, which is Apache 2.0, not ours to relicense
 is_excluded() {
   case "$1" in
     *zz_generated*) return 0 ;;
     config/crd/*|config/rbac/role.yaml) return 0 ;;
     internal/assets/*.yaml) return 0 ;;
-    test/e2e/kindnet.yaml) return 0 ;;
+    test/assets/kindnet.yaml) return 0 ;;
     *) return 1 ;;
   esac
 }

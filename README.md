@@ -422,7 +422,8 @@ internal/provisioner/ the detached run on a host, and the probe
 internal/render/     the genesis configuration to Cluster API objects
 internal/ssh/        the transport
 config/              CRDs, RBAC and the controller Deployment
-test/e2e/            the end-to-end harness and its stand-in host image
+test/assets/         the stand-in host image and the vendored CNI
+test/scenarios/      the scenarios, and the fleet drivers they run on
 ```
 
 ## CI
@@ -449,5 +450,5 @@ kgenesis builds on Cluster API and its kubeadm bootstrap and control plane
 providers, which are Apache 2.0, and it installs cert-manager, a CNI you supply
 and optionally kube-vip into the clusters it creates. Those keep their own
 licences; nothing here relicenses them. One file is vendored rather than
-referenced: `test/e2e/kindnet.yaml` comes from kind and carries kind's Apache
+referenced: `test/assets/kindnet.yaml` comes from kind and carries kind's Apache
 2.0 header, not this project's.

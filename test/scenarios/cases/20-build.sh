@@ -16,7 +16,7 @@ scenario_build() {
   KUBECONFIG="${WORKLOAD}" kubectl wait --for=condition=Ready nodes --all --timeout=10m
   KUBECONFIG="${WORKLOAD}" kubectl get nodes -o wide
 
-  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_COUNT + WORKER_COUNT))"
+  every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_REPLICAS + WORKER_REPLICAS))"
   nodes_advertise_their_own_address "${WORKLOAD}"
   nodes_carry_provider_ids "${WORKLOAD}"
   info "every node carries a kgenesis provider ID"
@@ -24,15 +24,15 @@ scenario_build() {
   local members
   members="$(KUBECONFIG="${WORKLOAD}" kubectl get nodes \
     -l node-role.kubernetes.io/control-plane --no-headers | wc -l | tr -d ' ')"
-  [[ "${members}" == "${CONTROL_PLANE_COUNT}" ]] ||
-    fail "expected ${CONTROL_PLANE_COUNT} control plane nodes, found ${members}"
-  info "${members} control plane nodes with etcd quorum"
+  [[ "${members}" == "${CONTROL_PLANE_REPLICAS}" ]] ||
+    fail "expected ${CONTROL_PLANE_REPLICAS} control plane nodes, found ${members}"
+  info "${members} control plane node(s)"
 
-  vip_answers "${WORKLOAD}"
-  info "the API server answers on ${VIP}"
+  endpoint_answers "${WORKLOAD}" "${LAB_ENDPOINT}"
+  info "the API server answers on ${LAB_ENDPOINT}"
 
   # The spare is in the fleet but not in this cluster's configuration, so it
   # should not have been touched.
-  host_is_clean "kg-worker-$(worker_total)"
+  host_is_clean "kg-worker-${WORKER_HOSTS}"
   info "the spare host is untouched"
 }

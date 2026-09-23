@@ -1,34 +1,34 @@
 # SPDX-FileCopyrightText: 2026 Ashon
 # SPDX-License-Identifier: MIT
-name: E2E
+name: Scenarios
 
 on:
   push:
     branches: [main]
   pull_request:
   schedule:
-    # The test builds a real cluster, so it also catches drift in the upstream
-    # images it pulls even when nothing here changed.
+    # The scenarios build real clusters, so they also catch drift in the
+    # upstream images they pull even when nothing here changed.
     - cron: "0 3 * * 1"
   workflow_dispatch:
     inputs:
       node_image:
-        description: kindest/node image the fake hosts are built from
+        description: kindest/node image the host containers are built from
         required: false
         default: kindest/node:v1.33.1
 
 concurrency:
-  group: e2e-${{ github.ref }}
+  group: scenarios-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  e2e:
-    name: Build a cluster and pivot it
+  containers:
+    name: Scenarios on container hosts
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
 
@@ -44,7 +44,7 @@ jobs:
           version: v0.33.0
 
       # The bootstrap script loads these on each host. On a real machine they
-      # are usually present already; a GitHub runner needs them asked for.
+      # are usually present already; a runner needs them asked for.
       - name: Load the kernel modules the hosts need
         run: |
           sudo modprobe br_netfilter
@@ -68,12 +68,13 @@ jobs:
           sudo swapoff -a
           cat /proc/swaps
 
-      - name: Run the end to end test
+      - name: Run the scenarios
         env:
+          DRIVER: docker
           NODE_IMAGE: ${{ inputs.node_image || 'kindest/node:v1.33.1' }}
-          K8S_VERSION: v1.33.1
+          K8S_MINOR: "1.33"
           TIMEOUT: 25m
-        run: ./test/e2e/run.sh
+        run: ./test/scenarios/run.sh
 
       # The harness collects diagnostics itself, before it tears the containers
       # down. A step here would only ever see an empty docker ps.

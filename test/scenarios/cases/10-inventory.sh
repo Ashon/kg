@@ -9,8 +9,8 @@ scenario_inventory() {
   # yet. The configuration a cluster is built from lists only the hosts that
   # cluster may draw on, so this renders its own.
   local pool="${WORKDIR}/pool.yaml"
-  write_config "${pool}" pool "${VIP}" "${WORKDIR}/kindnet.yaml" \
-    1 "${CONTROL_PLANE_COUNT}" 1 "$(worker_total)"
+  write_config "${pool}" pool "${LAB_ENDPOINT}" "${WORKDIR}/kindnet.yaml" \
+    1 "${CONTROL_PLANE_HOSTS}" 1 "${WORKER_HOSTS}"
 
   log "Checking the inventory"
   local report
