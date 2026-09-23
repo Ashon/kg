@@ -337,6 +337,13 @@ func renderWorkerPool(cfg *config.Config, pool config.WorkerPool) (
 			Selector: metav1.LabelSelector{
 				MatchLabels: map[string]string{clusterv1.ClusterNameLabel: cfg.Cluster.Name},
 			},
+			// Oldest first, which is the order KubeadmControlPlane already
+			// replaces control plane machines in. Cluster API would otherwise
+			// pick a worker at random, and an upgrade nobody can predict the
+			// next step of is one nobody can stage or stop halfway.
+			Deletion: clusterv1.MachineDeploymentDeletionSpec{
+				Order: clusterv1.OldestMachineSetDeletionOrder,
+			},
 			Template: clusterv1.MachineTemplateSpec{
 				ObjectMeta: clusterv1.ObjectMeta{Labels: poolLabels(cfg)},
 				Spec: clusterv1.MachineSpec{

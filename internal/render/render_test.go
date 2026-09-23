@@ -264,6 +264,22 @@ func TestRenderWorkerPoolTaintsAndLabels(t *testing.T) {
 	}
 }
 
+// Cluster API picks a worker at random when a MachineSet scales down, which
+// during a rollout means nobody can say which machine goes next. Oldest first
+// is the order KubeadmControlPlane already uses, so a cluster upgrades the same
+// way on both sides.
+func TestRenderWorkerPoolReplacesTheOldestMachineFirst(t *testing.T) {
+	objects, err := Render(testConfig(t))
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	deployment := find[*clusterv1.MachineDeployment](t, objects.Infra, WorkerDeploymentName("lab", "default"))
+	if got := deployment.Spec.Deletion.Order; got != clusterv1.OldestMachineSetDeletionOrder {
+		t.Errorf("deletion order is %q, want %q", got, clusterv1.OldestMachineSetDeletionOrder)
+	}
+}
+
 func containsString(list []string, want string) bool {
 	for _, s := range list {
 		if s == want {
