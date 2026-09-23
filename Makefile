@@ -17,7 +17,8 @@ MANAGER_IMAGE := $(IMAGE):$(IMAGE_TAG)
 LDFLAGS := -s -w \
   -X github.com/Ashon/kgenesis/internal/version.Version=$(VERSION) \
   -X github.com/Ashon/kgenesis/internal/version.GitCommit=$(GIT_COMMIT) \
-  -X github.com/Ashon/kgenesis/internal/version.BuildDate=$(BUILD_DATE)
+  -X github.com/Ashon/kgenesis/internal/version.BuildDate=$(BUILD_DATE) \
+  -X github.com/Ashon/kgenesis/internal/version.Image=$(MANAGER_IMAGE)
 
 BIN := bin
 
@@ -107,6 +108,10 @@ docker-build: ## Build the provider container image
 	  --build-arg GIT_COMMIT=$(GIT_COMMIT) \
 	  --build-arg BUILD_DATE=$(BUILD_DATE) \
 	  -t $(MANAGER_IMAGE) .
+
+.PHONY: release
+release: ## Build the release artifacts into dist/ (VERSION=v0.1.0)
+	./hack/release.sh $(VERSION)
 
 .PHONY: docker-push
 docker-push: ## Push the provider container image

@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -13,25 +14,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
-	"github.com/Ashon/kgenesis/internal/assets"
 	"github.com/Ashon/kgenesis/internal/config"
-	"github.com/Ashon/kgenesis/internal/kube"
 	"github.com/Ashon/kgenesis/internal/ssh"
+	"github.com/Ashon/kgenesis/internal/version"
 )
 
 // providerImageFor reports the controller image that will actually run: the
-// override when one was given, and the image baked into the embedded manifest
+// override when one was given, and the one this build was stamped with
 // otherwise. Callers need it before installing, to decide whether the image has
 // to be carried to the machines that will run it.
 func providerImageFor(override string) (string, error) {
 	if override != "" {
 		return override, nil
 	}
-	objects, err := kube.DecodeManifest(assets.ProviderComponents)
-	if err != nil {
-		return "", err
+	if version.Image == "" {
+		return "", errors.New("this build carries no controller image; pass --provider-image")
 	}
-	return kube.DeploymentImage(objects, providerDeployment, providerContainer)
+	return version.Image, nil
 }
 
 // claimedHosts reports the configured hosts this cluster has taken, which are

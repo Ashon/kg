@@ -89,7 +89,7 @@ Nothing is provisioned on the hosts yet; that is ` + "`" + invoke("cluster creat
 			if err != nil {
 				return err
 			}
-			if err := installProvider(ctx, kubeconfig, providerImage); err != nil {
+			if err := installProvider(ctx, kubeconfig, image); err != nil {
 				return err
 			}
 
@@ -129,6 +129,9 @@ Nothing is provisioned on the hosts yet; that is ` + "`" + invoke("cluster creat
 	return cmd
 }
 
+// installProvider applies the embedded manifest with the image the caller
+// resolved. The manifest carries a default so it can be read on its own; what
+// actually runs is what this build was stamped with, or the override.
 func installProvider(ctx context.Context, kubeconfig, image string) error {
 	c, err := kube.NewClient(kubeconfig)
 	if err != nil {
@@ -140,10 +143,8 @@ func installProvider(ctx context.Context, kubeconfig, image string) error {
 		return err
 	}
 
-	if image != "" {
-		if err := kube.SetDeploymentImage(objects, providerDeployment, providerContainer, image); err != nil {
-			return err
-		}
+	if err := kube.SetDeploymentImage(objects, providerDeployment, providerContainer, image); err != nil {
+		return err
 	}
 
 	return kube.ApplyObjects(ctx, c, objects)

@@ -351,7 +351,29 @@ $ make e2e             # build a real cluster and pivot it
 $ make generate        # deepcopy, CRDs, RBAC, embedded provider manifest
 $ make verify          # fail when generated files are out of date
 $ make docker-build    # build the provider image
+$ make release VERSION=v0.1.0   # the release artifacts, into dist/
 ```
+
+## Releases
+
+A tag cuts a release. The tag name is the version, and it goes into three places
+that have to agree: the binaries, the container image, and the manifest those
+binaries install. `kg version` says which image the binary in your hand will
+install, which is the first thing to check when the controller will not start.
+
+```console
+$ kg version
+kgenesis v0.1.0 (commit 1a2b3c4, darwin/arm64, go1.27.1), built 2026-09-23T05:00:00Z
+controller image ghcr.io/ashon/kgenesis:v0.1.0
+```
+
+A release publishes a CLI archive per platform, `provider-components.yaml` for
+reading the manifest without a CLI, and `SHA256SUMS` over both. The controller
+image is built for `linux/amd64` and `linux/arm64`, because it runs on whatever
+the cluster's own machines are.
+
+`hack/release.sh` builds the same artifacts locally, which is how to see what a
+tag would produce before pushing one.
 
 ### Tests
 

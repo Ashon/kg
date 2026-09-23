@@ -15,6 +15,14 @@ var (
 	Version   = "dev"
 	GitCommit = ""
 	BuildDate = ""
+
+	// Image is the controller image this build installs.
+	//
+	// It travels with the version rather than living only in the embedded
+	// manifest, because the two have to agree: a released CLI that installed
+	// the manifest's default would send kubelet after a tag that was never
+	// published, and the only symptom would be ImagePullBackOff.
+	Image = "ghcr.io/ashon/kgenesis:dev"
 )
 
 // String is a one line summary suitable for `--version`.
@@ -31,6 +39,12 @@ func String() string {
 		Version, commit, runtime.GOOS, runtime.GOARCH, runtime.Version())
 	if BuildDate != "" {
 		out += ", built " + BuildDate
+	}
+	// The image is part of the answer to "what does this binary do": it is what
+	// `init` installs, and the first thing to check when the controller cannot
+	// start.
+	if Image != "" {
+		out += "\ncontroller image " + Image
 	}
 	return out
 }

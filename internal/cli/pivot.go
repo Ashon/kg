@@ -339,7 +339,11 @@ func installTargetProviders(ctx context.Context, kubeconfig, capiVersion, provid
 	}); err != nil {
 		return err
 	}
-	return installProvider(ctx, kubeconfig, providerImage)
+	image, err := providerImageFor(providerImage)
+	if err != nil {
+		return err
+	}
+	return installProvider(ctx, kubeconfig, image)
 }
 
 // inventory is what the genesis node holds for one cluster.
