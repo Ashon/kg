@@ -21,6 +21,12 @@ type SystemInfo struct {
 	CPUCores         int32
 	MemoryMB         int64
 	ContainerRuntime string
+
+	// KubeadmVersion is what the host will actually build a cluster with.
+	// kgenesis does not install it, so a host carrying a different minor than
+	// the configuration asks for fails in the middle of a rollout unless it is
+	// noticed here.
+	KubeadmVersion string
 }
 
 // probeScript emits key=value lines. Every lookup is guarded so a field that is
@@ -55,6 +61,7 @@ for candidate in containerd crio dockerd; do
   fi
 done
 echo "runtime=${runtime}"
+echo "kubeadm=$(kubeadm version -o short 2>/dev/null || echo)"
 `
 
 // Probe collects host facts over an existing connection.
@@ -78,6 +85,7 @@ func Probe(ctx context.Context, c *ssh.Client) (*SystemInfo, error) {
 		KernelVersion:    fields["kernel"],
 		Architecture:     normalizeArch(fields["arch"]),
 		ContainerRuntime: fields["runtime"],
+		KubeadmVersion:   fields["kubeadm"],
 	}
 	if n, err := strconv.ParseInt(fields["cpu"], 10, 32); err == nil {
 		info.CPUCores = int32(n)

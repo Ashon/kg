@@ -83,7 +83,7 @@ func checkHosts(ctx context.Context, cfg *config.Config) []checkResult {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			results[i] = checkHost(ctx, host)
+			results[i] = checkHost(ctx, host, cfg.Cluster.KubernetesVersion)
 		}()
 	}
 	wg.Wait()
@@ -91,7 +91,7 @@ func checkHosts(ctx context.Context, cfg *config.Config) []checkResult {
 	return results
 }
 
-func checkHost(ctx context.Context, host config.HostConfig) checkResult {
+func checkHost(ctx context.Context, host config.HostConfig, wantVersion string) checkResult {
 	result := checkResult{host: host}
 
 	sshCfg, err := sshConfigFor(host)
@@ -143,29 +143,34 @@ func checkHost(ctx context.Context, host config.HostConfig) checkResult {
 	if info.ContainerRuntime == "" {
 		result.warning = joinWarnings(result.warning, "no container runtime found; install containerd before provisioning")
 	}
+	if mismatch := kubeadmMismatch(wantVersion, info.KubeadmVersion); mismatch != "" {
+		result.warning = joinWarnings(result.warning, mismatch)
+	}
 
 	return result
 }
 
 func reportCheck(out io.Writer, results []checkResult) error {
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "HOST\tADDRESS\tROLE\tSTATUS\tOS\tARCH\tCPU\tMEM\tRUNTIME")
+	fmt.Fprintln(w, "HOST\tADDRESS\tROLE\tSTATUS\tOS\tARCH\tCPU\tMEM\tRUNTIME\tKUBEADM")
 
 	var failed, warned int
 	for _, r := range results {
 		switch {
 		case r.err != nil:
 			failed++
-			fmt.Fprintf(w, "%s\t%s\t%s\tFAIL\t-\t-\t-\t-\t-\n", r.host.Name, r.host.Address, r.host.Role)
+			fmt.Fprintf(w, "%s\t%s\t%s\tFAIL\t-\t-\t-\t-\t-\t-\n", r.host.Name, r.host.Address, r.host.Role)
 		case r.warning != "":
 			warned++
-			fmt.Fprintf(w, "%s\t%s\t%s\tWARN\t%s\t%s\t%d\t%d MiB\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\tWARN\t%s\t%s\t%d\t%d MiB\t%s\t%s\n",
 				r.host.Name, r.host.Address, r.host.Role,
-				r.info.OSImage, r.info.Architecture, r.info.CPUCores, r.info.MemoryMB, runtimeOrDash(r.info))
+				r.info.OSImage, r.info.Architecture, r.info.CPUCores, r.info.MemoryMB,
+				runtimeOrDash(r.info), dashIfEmpty(r.info.KubeadmVersion))
 		default:
-			fmt.Fprintf(w, "%s\t%s\t%s\tOK\t%s\t%s\t%d\t%d MiB\t%s\n",
+			fmt.Fprintf(w, "%s\t%s\t%s\tOK\t%s\t%s\t%d\t%d MiB\t%s\t%s\n",
 				r.host.Name, r.host.Address, r.host.Role,
-				r.info.OSImage, r.info.Architecture, r.info.CPUCores, r.info.MemoryMB, runtimeOrDash(r.info))
+				r.info.OSImage, r.info.Architecture, r.info.CPUCores, r.info.MemoryMB,
+				runtimeOrDash(r.info), dashIfEmpty(r.info.KubeadmVersion))
 		}
 	}
 	if err := w.Flush(); err != nil {
@@ -351,4 +356,38 @@ func abbreviateKey(authorizedKey string) string {
 		return authorizedKey
 	}
 	return fields[0] + " " + fields[1][:10] + "..." + fields[1][len(fields[1])-6:]
+}
+
+func dashIfEmpty(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
+
+// kubeadmMismatch reports a host whose kubeadm is not the release the cluster
+// is configured for.
+//
+// kgenesis does not install kubeadm, so the host decides which Kubernetes it can
+// build. A minor apart from the configuration is not a warning to be read later:
+// kubeadm refuses, several minutes into a rollout, and says nothing about where
+// the number it disagreed with came from.
+func kubeadmMismatch(want, got string) string {
+	if want == "" || got == "" {
+		return ""
+	}
+	if minorOf(want) == minorOf(got) {
+		return ""
+	}
+	return fmt.Sprintf("kubeadm is %s, and the configuration asks for %s", got, want)
+}
+
+// minorOf reduces v1.33.13 to v1.33, which is as far as kubeadm's own skew rules
+// care.
+func minorOf(version string) string {
+	parts := strings.SplitN(strings.TrimPrefix(version, "v"), ".", 3)
+	if len(parts) < 2 {
+		return version
+	}
+	return "v" + parts[0] + "." + parts[1]
 }

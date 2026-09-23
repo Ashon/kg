@@ -151,9 +151,15 @@ printf '%%s' "${code}" > %s
 	return nil
 }
 
-// requiredCommands are what the rendered bootstrap script assumes exist. Checking
-// up front turns an obscure mid-kubeadm failure into a clear message.
-var requiredCommands = []string{"bash", "base64", "install", "setsid", "systemctl"}
+// requiredCommands are what the rendered bootstrap script assumes exist.
+// Checking up front turns an obscure mid-kubeadm failure into a clear message.
+//
+// kubeadm and kubelet are on the list because kgenesis does not install them. A
+// host without them passes every other check and then fails several minutes
+// into a rollout, wearing the name of whatever kubeadm was doing at the time.
+var requiredCommands = []string{
+	"bash", "base64", "install", "setsid", "systemctl", "kubeadm", "kubelet",
+}
 
 func preflight(ctx context.Context, c *ssh.Client) error {
 	res, err := c.Run(ctx, "id -u")

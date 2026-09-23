@@ -60,8 +60,15 @@ On every host:
 
 - A Linux distribution with `bash`, `base64`, `install`, `setsid` and `systemctl`
 - A container runtime, normally containerd
+- `kubeadm`, `kubelet` and `kubectl`, at the minor `cluster.kubernetesVersion`
+  asks for. kgenesis does not install them: it bootstraps machines that are
+  already provisioned, so the host decides which Kubernetes it can build
 - SSH as root, by key or password
-- No existing kubeadm state (`kg inventory check` flags leftovers)
+- No existing kubeadm state
+
+`kg inventory check` reports all of it, including a kubeadm a minor away from
+what the configuration asks for, which kubeadm itself would only refuse several
+minutes into a rollout.
 
 The bootstrap prepares two things itself and stops with a clear message when it
 cannot, rather than letting kubeadm fail several minutes later wearing someone
@@ -83,13 +90,18 @@ you can paste its suggestions straight back.
 
 ```console
 $ kg config init            # write a starter ~/.kg/config
-$ $EDITOR ~/.kg/config      # fill in hosts and the control plane VIP
+$ $EDITOR ~/.kg/config      # hosts, the control plane VIP, and a CNI
 $ kg config validate        # check it without contacting anything
 $ kg inventory check        # connect to every host and report
 $ kg init                   # bootstrap cluster + providers + inventory
 $ kg cluster create         # stamp out the cluster and wait
 $ kg eject                  # let the cluster go, drop the genesis node
 ```
+
+kgenesis does not bundle a CNI, so `cluster.cni.manifests` has to name one
+before the cluster will have a Ready node. `cluster create` says so when it is
+missing rather than reporting a cluster that is up and leaving the reason to be
+found. See [CNI](#cni).
 
 The configuration is read from `~/.kg/config` unless `--config` or
 `KGENESIS_CONFIG` says otherwise, so the commands above work from any directory.

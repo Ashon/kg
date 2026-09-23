@@ -104,6 +104,14 @@ and runs that cloud-init on it over SSH.`,
 
 			// Nodes stay NotReady until a CNI is present, so installing it is part
 			// of "the cluster is up" rather than a separate thing to remember.
+			// Saying nothing when there is none to install would make "ready"
+			// mean a cluster whose every node is NotReady, and leave the reason
+			// for an operator to find.
+			if !cfg.Cluster.CNI.HasCNI() {
+				fmt.Fprintf(out, "\nNo CNI is configured, so every node will stay NotReady.\n")
+				fmt.Fprintf(out, "kgenesis does not bundle one; the version is yours to pin.\n\n")
+				fmt.Fprintf(out, "  %s  once cluster.cni.manifests names one\n", pad(invoke("cni install")))
+			}
 			if cfg.Cluster.CNI.HasCNI() {
 				step(out, "Installing the CNI")
 				workloadKubeconfig, err := opts.requireWorkloadKubeconfig(ctx, cfg)
