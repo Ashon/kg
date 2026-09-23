@@ -115,7 +115,7 @@ docker-push: ## Push the provider container image
 ##@ End to end
 
 .PHONY: e2e
-e2e: ## Build a real cluster from container hosts and pivot it (needs Docker)
+e2e: ## Build a real cluster from container hosts and release it (needs Docker)
 	./test/e2e/run.sh
 
 .PHONY: e2e-keep
@@ -123,7 +123,7 @@ e2e-keep: ## Same as e2e, but leave the clusters and hosts running for inspectio
 	KEEP=1 ./test/e2e/run.sh
 
 .PHONY: vm-test
-vm-test: ## Build a cluster on real VMs: 3 control planes with a VIP, 2 workers (macOS, needs lima)
+vm-test: ## Run every scenario on real VMs; see test/vm/SCENARIOS.md (macOS, needs lima)
 	./test/vm/run.sh
 
 .PHONY: vm-test-keep

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 # End-to-end test: build a real Kubernetes cluster with kgenesis and take it
-# through a pivot.
+# through the release of the finished cluster.
 #
 # kgenesis reaches hosts over SSH and nothing else, so containers running sshd
 # stand in for pre-provisioned machines. They are built from kindest/node, which
@@ -447,15 +447,21 @@ done < <(KUBECONFIG="${WORKLOAD}" kubectl get nodes -o jsonpath='{range .items[*
 nodes="$(KUBECONFIG="${WORKLOAD}" kubectl get nodes --no-headers | wc -l | tr -d ' ')"
 [[ "${nodes}" == "${expected}" ]] || fail "expected ${expected} nodes, found ${nodes}"
 
-log "Pivoting"
-"${KG}" pivot -c "${CONFIG}" --state-dir "${STATE}" \
-  --provider-image "${PROVIDER_IMAGE}" --timeout "${TIMEOUT}"
+log "Ejecting"
+"${KG}" eject -c "${CONFIG}" --state-dir "${STATE}" --timeout "${TIMEOUT}"
 
-log "Verifying the cluster now manages itself"
-KUBECONFIG="${WORKLOAD}" kubectl get cluster,machines -A
-KUBECONFIG="${WORKLOAD}" kubectl -n kgenesis-system rollout status deploy/kgenesis-controller-manager --timeout=5m
+log "Verifying the released cluster still serves"
+KUBECONFIG="${WORKLOAD}" kubectl get nodes -o wide
+released_nodes="$(KUBECONFIG="${WORKLOAD}" kubectl get nodes --no-headers | grep -c ' Ready')"
+[[ "${released_nodes}" == "${expected}" ]] ||
+  fail "expected ${expected} Ready nodes after the release, found ${released_nodes}"
 
-kind get clusters 2>/dev/null | grep -q '^kgenesis-bootstrap$' \
-  && fail "the bootstrap cluster is still running after the pivot"
+# A release hands nothing to the cluster. Anything kgenesis running in there
+# would mean it can still reach the hosts, which is the thing a release avoids.
+KUBECONFIG="${WORKLOAD}" kubectl get namespace kgenesis-system >/dev/null 2>&1 &&
+  fail "the released cluster is running the kgenesis provider"
+
+kind get clusters 2>/dev/null | grep -q '^kgenesis-bootstrap$' &&
+  fail "the genesis node is still running after the release"
 
 log "End to end test passed"

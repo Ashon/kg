@@ -27,6 +27,16 @@ EOF
 chmod 600 /etc/netplan/99-kgenesis.yaml
 netplan apply
 
+# Lima hands the guest a fresh cloud-init instance id on every start, so
+# cloud-init treats each boot as a new machine and regenerates the SSH host keys.
+# Real hardware does not change identity when it reboots, and kgenesis pins the
+# key it first saw, so a host that came back from a reboot would be refused for
+# good. Keeping the keys is what makes the fleet behave like the thing it stands
+# in for.
+cat > /etc/cloud/cloud.cfg.d/99-kgenesis-hostkeys.cfg <<'EOF'
+ssh_deletekeys: false
+EOF
+
 install -d -m 0700 /root/.ssh
 printf '%s\n' "${AUTHORIZED_KEY}" > /root/.ssh/authorized_keys
 chmod 600 /root/.ssh/authorized_keys
