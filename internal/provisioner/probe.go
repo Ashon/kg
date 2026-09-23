@@ -43,7 +43,7 @@ for candidate in containerd crio dockerd; do
     # Each of these prints its own name and often a source path in --version,
     # so the last field is taken rather than the whole line: "containerd
     # github.com/containerd/containerd/v2 2.2.1" becomes "containerd 2.2.1".
-    version="$("$candidate" --version 2>/dev/null | head -1 | awk '"'"'{print $NF}'"'"')"
+    version="$("$candidate" --version 2>/dev/null | head -1 | awk '{print $NF}')"
     runtime="$candidate ${version}"
     break
   fi
