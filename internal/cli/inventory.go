@@ -94,22 +94,10 @@ func checkHosts(ctx context.Context, cfg *config.Config) []checkResult {
 func checkHost(ctx context.Context, host config.HostConfig) checkResult {
 	result := checkResult{host: host}
 
-	sshCfg := ssh.Config{
-		Address:        host.Address,
-		Port:           host.Port,
-		User:           host.User,
-		Policy:         ssh.HostKeyPolicy(host.HostKeyPolicy),
-		Password:       host.Password,
-		Passphrase:     host.Passphrase,
-		KnownPublicKey: host.PublicKey,
-	}
-	if host.PrivateKeyPath != "" {
-		key, err := os.ReadFile(host.PrivateKeyPath)
-		if err != nil {
-			result.err = fmt.Errorf("read private key: %w", err)
-			return result
-		}
-		sshCfg.PrivateKey = key
+	sshCfg, err := sshConfigFor(host)
+	if err != nil {
+		result.err = err
+		return result
 	}
 
 	conn, err := ssh.Dial(ctx, sshCfg)

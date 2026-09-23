@@ -355,8 +355,17 @@ Run a locally built provider on the genesis node:
 
 ```console
 $ make docker-build
-$ kg init --provider-image ghcr.io/ashon/kgenesis:dev --load-image
+$ kg init
 ```
+
+`kg init` carries the controller image into the bootstrap cluster whenever the
+local Docker daemon already has it, so a freshly built provider needs no
+registry. `--provider-image` selects a different one, and `--load-image` forces
+the same path when the daemon cannot be asked.
+
+`kg eject --self-manage` does the same for the cluster it hands over, importing
+the image into each host's containerd before the controllers move. Without it the
+moved controller would wait on a registry that never had the image.
 
 `make generate` rewrites `internal/assets/provider-components.yaml`, the manifest
 `kg init` applies. It is embedded in the binary so a genesis node needs no

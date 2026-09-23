@@ -114,3 +114,30 @@ func DeleteManifest(ctx context.Context, c client.Client, data []byte) error {
 	}
 	return nil
 }
+
+// DeploymentImage reports the container image a decoded manifest currently
+// carries. The caller needs the effective image, not the override it may or may
+// not have passed, to decide whether the local Docker daemon already has it.
+func DeploymentImage(objects []*unstructured.Unstructured, deployment, container string) (string, error) {
+	for _, obj := range objects {
+		if obj.GetKind() != "Deployment" || obj.GetName() != deployment {
+			continue
+		}
+
+		containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
+		if err != nil || !found {
+			return "", fmt.Errorf("deployment %s has no containers", deployment)
+		}
+
+		for i := range containers {
+			c, ok := containers[i].(map[string]any)
+			if !ok || c["name"] != container {
+				continue
+			}
+			image, _ := c["image"].(string)
+			return image, nil
+		}
+		return "", fmt.Errorf("deployment %s has no container named %s", deployment, container)
+	}
+	return "", fmt.Errorf("manifest has no Deployment named %s", deployment)
+}

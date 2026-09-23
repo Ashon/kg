@@ -85,12 +85,22 @@ Nothing is provisioned on the hosts yet; that is ` + "`" + invoke("cluster creat
 			}
 
 			step(out, "Installing the kgenesis infrastructure provider")
+			image, err := providerImageFor(providerImage)
+			if err != nil {
+				return err
+			}
 			if err := installProvider(ctx, kubeconfig, providerImage); err != nil {
 				return err
 			}
-			if loadImage {
-				step(out, "Loading %s into the bootstrap cluster", providerImage)
-				if err := kindCluster.LoadImage(ctx, providerImage); err != nil {
+
+			// A genesis node is usually the machine the provider was built on,
+			// and that image has never been pushed, so kubelet would sit in
+			// ImagePullBackOff waiting for a registry that does not have it.
+			// Having it locally is the answer; --load-image only forces the
+			// same path when the daemon cannot be asked.
+			if loadImage || bootstrap.ImageAvailableLocally(ctx, image) {
+				step(out, "Loading %s into the bootstrap cluster", image)
+				if err := kindCluster.LoadImage(ctx, image); err != nil {
 					return err
 				}
 			}
@@ -112,7 +122,7 @@ Nothing is provisioned on the hosts yet; that is ` + "`" + invoke("cluster creat
 	cmd.Flags().StringVar(&providerImage, "provider-image", "",
 		"Override the kgenesis controller image, for running a locally built provider")
 	cmd.Flags().BoolVar(&loadImage, "load-image", false,
-		"Load --provider-image from the local Docker daemon into the bootstrap cluster instead of pulling it")
+		"Load the controller image from the local Docker daemon even when it is not visible there")
 	cmd.Flags().DurationVar(&waitTimeout, "timeout", 15*time.Minute,
 		"Time budget for the whole initialisation")
 

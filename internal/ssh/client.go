@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -228,11 +229,26 @@ func (e *ExitError) Error() string {
 // Run executes cmd and waits for it. A non-zero exit becomes an *ExitError; the
 // Result is still returned so callers can log the output either way.
 func (c *Client) Run(ctx context.Context, cmd string) (Result, error) {
+	return c.run(ctx, cmd, nil)
+}
+
+// RunWithInput is Run with the command's stdin fed from r. It streams rather
+// than buffering, so an image archive can be piped straight to a host without
+// ever being held in memory twice.
+func (c *Client) RunWithInput(ctx context.Context, cmd string, r io.Reader) (Result, error) {
+	return c.run(ctx, cmd, r)
+}
+
+func (c *Client) run(ctx context.Context, cmd string, stdin io.Reader) (Result, error) {
 	session, err := c.client.NewSession()
 	if err != nil {
 		return Result{}, fmt.Errorf("open session: %w", err)
 	}
 	defer func() { _ = session.Close() }()
+
+	if stdin != nil {
+		session.Stdin = stdin
+	}
 
 	var stdout, stderr bytes.Buffer
 	session.Stdout = &stdout

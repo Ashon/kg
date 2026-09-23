@@ -62,3 +62,18 @@ func loadToEach(archive io.Reader, targets []nodes.Node) error {
 	}
 	return nil
 }
+
+// ImageAvailableLocally reports whether the local Docker daemon already holds
+// the image. A genesis node is often the machine the provider was built on, and
+// the image it built has never been pushed anywhere, so this is what decides
+// between loading it straight into the bootstrap cluster and letting kubelet
+// pull from a registry.
+func ImageAvailableLocally(ctx context.Context, image string) bool {
+	if image == "" {
+		return false
+	}
+	inspect := exec.CommandContext(ctx, "docker", "image", "inspect", image)
+	inspect.Stdout = io.Discard
+	inspect.Stderr = io.Discard
+	return inspect.Run() == nil
+}
