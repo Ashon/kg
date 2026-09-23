@@ -393,6 +393,31 @@ expected to rebuild status on the next reconcile. kgenesis reads the claim back
 off the Host itself, where a move carries it, so what arrives is a cluster still
 running the hosts it had rather than one reaching for new ones.
 
+## Rollout order
+
+A machine is never upgraded in place: it is replaced. An upgrade is therefore a
+sequence of replacements, and the question worth asking about one is which
+machine goes next. It has an answer before the rollout starts.
+
+- `KubeadmControlPlane` replaces the oldest control plane machine first. That is
+  Cluster API's own behaviour, with the name breaking a tie.
+- Worker pools are rendered with `deletion.order: Oldest`, so they go the same
+  way. Cluster API's default is `Random`.
+- The pool hands out hosts in the order `kg inventory` prints them, and the
+  digits in a name count as a number there, so `kg-worker-2` comes before
+  `kg-worker-10`. A machine takes the first free host of its role.
+
+A released host rejoins the pool only once it has been reset and probed, so a
+rollout that moves faster than a reset takes the next free host rather than
+waiting for the one it just gave back.
+
+To send a particular machine first, annotate it. Cluster API gives this priority
+over everything above, on both the control plane and a worker pool:
+
+```console
+$ kubectl annotate machine -n lab lab-default-abc12 cluster.x-k8s.io/delete-machine=""
+```
+
 ## Development
 
 ```console
