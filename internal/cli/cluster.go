@@ -153,7 +153,7 @@ func waitForCluster(ctx context.Context, c client.Client, cfg *config.Config, ou
 
 		fmt.Fprintf(out, "  control plane %d/%d ready, machines %d/%d running\n",
 			summary.controlPlaneReady, summary.controlPlaneDesired,
-			summary.machinesRunning, len(summary.machines))
+			summary.machinesRunning, summary.machinesDesired)
 
 		if summary.ready() {
 			return nil
@@ -180,7 +180,8 @@ type summary struct {
 	controlPlaneReady   int32
 	controlPlaneDesired int32
 	machines            []clusterv1.Machine
-	machinesRunning     int
+	machinesRunning     int32
+	machinesDesired     int32
 	hosts               []infrav1.Host
 
 	// failures are machines whose bootstrap will not recover on its own.
@@ -197,8 +198,8 @@ type machineFailure struct {
 func (s *summary) ready() bool {
 	return s.controlPlaneDesired > 0 &&
 		s.controlPlaneReady == s.controlPlaneDesired &&
-		len(s.machines) > 0 &&
-		s.machinesRunning == len(s.machines)
+		s.machinesDesired > 0 &&
+		s.machinesRunning == s.machinesDesired
 }
 
 func clusterSummary(ctx context.Context, c client.Client, cfg *config.Config) (*summary, error) {
@@ -234,10 +235,13 @@ func clusterSummary(ctx context.Context, c client.Client, cfg *config.Config) (*
 		}
 	}
 
-	// What was asked for, not what exists yet. The control plane provider creates
-	// its machines one at a time, so counting them would report a shrinking
-	// target - 0/3 then 0/1 - as though fewer had been wanted all along.
+	// What was asked for, not what exists yet. The providers create their
+	// machines one at a time, so counting the ones that exist reports a target
+	// that grows to meet the count - 5 of 5 running while a sixth has not been
+	// created - and a wait that ends before the cluster is the size it was asked
+	// to be.
 	s.controlPlaneDesired = cfg.Cluster.ControlPlaneReplicas
+	s.machinesDesired = cfg.Cluster.ControlPlaneReplicas + totalWorkers(cfg)
 
 	hosts := &infrav1.HostList{}
 	if err := c.List(ctx, hosts, client.InNamespace(cfg.Cluster.Namespace)); err != nil {
@@ -336,7 +340,7 @@ func printStatus(out io.Writer, cfg *config.Config, s *summary) {
 	fmt.Fprintf(out, "  endpoint       %s:%d\n",
 		s.cluster.Spec.ControlPlaneEndpoint.Host, s.cluster.Spec.ControlPlaneEndpoint.Port)
 	fmt.Fprintf(out, "  control plane  %d/%d ready\n", s.controlPlaneReady, s.controlPlaneDesired)
-	fmt.Fprintf(out, "  machines       %d/%d running\n\n", s.machinesRunning, len(s.machines))
+	fmt.Fprintf(out, "  machines       %d/%d running\n\n", s.machinesRunning, s.machinesDesired)
 
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "MACHINE\tROLE\tPHASE\tHOST\tADDRESS")

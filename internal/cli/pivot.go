@@ -65,7 +65,7 @@ is not up would leave the objects with no controllers to act on them.`,
 					"cluster %s is not ready yet (control plane %d/%d, machines %d/%d); "+
 						"run `"+invoke("cluster status --watch")+"`",
 					cfg.Cluster.Name, summary.controlPlaneReady, summary.controlPlaneDesired,
-					summary.machinesRunning, len(summary.machines))
+					summary.machinesRunning, summary.machinesDesired)
 			}
 
 			step(out, "Fetching the target cluster's kubeconfig")

@@ -132,15 +132,24 @@ func TestSummaryReadyRequiresMachines(t *testing.T) {
 		"machines pending": {
 			summary: summary{
 				controlPlaneDesired: 1, controlPlaneReady: 1,
-				machines: make([]clusterv1.Machine, 2), machinesRunning: 1,
+				machinesDesired: 2, machinesRunning: 1,
 			},
 		},
 		"all running": {
 			summary: summary{
 				controlPlaneDesired: 1, controlPlaneReady: 1,
-				machines: make([]clusterv1.Machine, 2), machinesRunning: 2,
+				machinesDesired: 2, machinesRunning: 2,
 			},
 			want: true,
+		},
+		// A provider creates its machines one at a time. Counting the ones that
+		// exist makes a wait end early: every machine so far is running, and the
+		// one still to be created is not counted as missing.
+		"a machine has not been created yet": {
+			summary: summary{
+				controlPlaneDesired: 3, controlPlaneReady: 3,
+				machines: make([]clusterv1.Machine, 5), machinesDesired: 6, machinesRunning: 5,
+			},
 		},
 	}
 
