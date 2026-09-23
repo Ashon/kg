@@ -163,6 +163,9 @@ workers each in their own order, which the case watches for while the rollout
 runs; every node ends on the new version, still on its own address, still
 answering behind the VIP.
 
+[docs/rollout-order.md](../../docs/rollout-order.md) says what that order is and
+where it comes from.
+
 The `libvirt` fleet is provisioned a minor below what this rolls to, so the
 earlier cases run on the older one. The rollout needs a host free of each role
 to move onto, which is the same thing `--self-manage` is refused without.

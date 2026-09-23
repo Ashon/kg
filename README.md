@@ -403,7 +403,7 @@ machine goes next. It has an answer before the rollout starts.
   Cluster API's own behaviour, with the name breaking a tie.
 - Worker pools are rendered with `deletion.order: Oldest`, so they go the same
   way. Cluster API's default is `Random`.
-- The pool hands out hosts in the order `kg inventory` prints them, and the
+- The pool hands out hosts in the order `kg inventory list` prints them, and the
   digits in a name count as a number there, so `kg-worker-2` comes before
   `kg-worker-10`. A machine takes the first free host of its role.
 
@@ -411,12 +411,8 @@ A released host rejoins the pool only once it has been reset and probed, so a
 rollout that moves faster than a reset takes the next free host rather than
 waiting for the one it just gave back.
 
-To send a particular machine first, annotate it. Cluster API gives this priority
-over everything above, on both the control plane and a worker pool:
-
-```console
-$ kubectl annotate machine -n lab lab-default-abc12 cluster.x-k8s.io/delete-machine=""
-```
+[docs/rollout-order.md](docs/rollout-order.md) traces a rollout host by host,
+and says how to send a particular machine first or hold a host out of the pool.
 
 ## Development
 
@@ -518,10 +514,12 @@ internal/cli/        command tree
 internal/cloudinit/  CABPK cloud-config to bash
 internal/config/     the genesis configuration
 internal/controller/ the reconcilers
+internal/inventory/  the order the host pool is read and handed out in
 internal/provisioner/ the detached run on a host, and the probe
 internal/render/     the genesis configuration to Cluster API objects
 internal/ssh/        the transport
 config/              CRDs, RBAC and the controller Deployment
+docs/                the manuals a command's help is too small for
 test/assets/         the stand-in host image and the vendored CNI
 test/scenarios/      the scenarios, and the fleet drivers they run on
 ```
@@ -531,7 +529,9 @@ test/scenarios/      the scenarios, and the fleet drivers they run on
 | Workflow | What it does |
 | -------- | ------------ |
 | `CI` | gofmt, vet, unit tests, build, and a check that the generated files are current |
-| `E2E` | builds a cluster from container hosts and pivots it, on every push and weekly |
+| `Scenarios` | every scenario a container fleet can run, on every push |
+| `Scenarios on machines` | every scenario, on KVM virtual machines, nightly |
+| `Release` | archives, the multi-arch controller image and checksums, on a `v*` tag |
 
 The generated-files check matters more than it looks: the CRDs, RBAC and the
 provider manifest embedded in the CLI are all generated, and a stale copy would
