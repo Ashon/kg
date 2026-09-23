@@ -29,6 +29,7 @@ import (
 
 	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
 	"github.com/Ashon/kgenesis/internal/cloudinit"
+	"github.com/Ashon/kgenesis/internal/inventory"
 	"github.com/Ashon/kgenesis/internal/provisioner"
 	"github.com/Ashon/kgenesis/internal/ssh"
 )
@@ -295,6 +296,13 @@ func (r *HostMachineReconciler) claimHost(
 	if err := r.List(ctx, hosts, client.InNamespace(hostMachine.Namespace)); err != nil {
 		return nil, err
 	}
+
+	// The list arrives in the order a cache happens to hold it, which is a map's
+	// and differs between reads. Walking it in inventory order instead is what
+	// makes the pool hand out kg-worker-1 before kg-worker-2: a rollout replaces
+	// machines one at a time, and an operator watching one has to be able to say
+	// which host it moves onto next.
+	inventory.SortHosts(hosts.Items)
 
 	// A claim is two writes to two objects: the Host records who took it, and
 	// the HostMachine records what it took. Anything that interrupts the pair -

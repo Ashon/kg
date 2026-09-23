@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 	"text/tabwriter"
@@ -21,6 +20,7 @@ import (
 
 	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
 	"github.com/Ashon/kgenesis/internal/config"
+	"github.com/Ashon/kgenesis/internal/inventory"
 	"github.com/Ashon/kgenesis/internal/kube"
 	"github.com/Ashon/kgenesis/internal/provisioner"
 	"github.com/Ashon/kgenesis/internal/ssh"
@@ -238,9 +238,7 @@ func newInventoryListCommand(opts *Options) *cobra.Command {
 				return fmt.Errorf("list hosts: %w", err)
 			}
 
-			sort.Slice(hosts.Items, func(i, j int) bool {
-				return hosts.Items[i].Name < hosts.Items[j].Name
-			})
+			inventory.SortHosts(hosts.Items)
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "HOST\tADDRESS\tROLE\tPHASE\tCLAIMED BY")

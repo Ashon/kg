@@ -278,3 +278,25 @@ func TestClaimHostRecordsTheClaimOnTheHost(t *testing.T) {
 		t.Errorf("%s is %q, want lab", infrav1.ClusterNameLabel, stored.Labels[infrav1.ClusterNameLabel])
 	}
 }
+
+// A rollout claims one host at a time, and which one it takes has to be the
+// same on every run: the pool is walked in inventory order, not in whatever
+// order the cache holds it.
+func TestClaimHostTakesThePoolInOrder(t *testing.T) {
+	// Named so that a plain string order would put cp-10 first.
+	ten := availableHost("cp-10", "10.0.0.20", infrav1.RoleControlPlane)
+	two := availableHost("cp-2", "10.0.0.12", infrav1.RoleControlPlane)
+
+	machine := controlPlaneMachine("cp-machine", types.UID("machine-uid"))
+	cluster := &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "lab", Namespace: "default"}}
+
+	r := newReconciler(t, ten, two, machine, cluster)
+
+	host, err := r.claimHost(t.Context(), log.Log, cluster, machine)
+	if err != nil {
+		t.Fatalf("claimHost: %v", err)
+	}
+	if host == nil || host.Name != "cp-2" {
+		t.Fatalf("claimed %v, want the first host in the pool, cp-2", host)
+	}
+}

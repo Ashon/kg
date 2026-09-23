@@ -353,8 +353,8 @@ func installTargetProviders(ctx context.Context, kubeconfig, capiVersion, provid
 	return installProvider(ctx, kubeconfig, image)
 }
 
-// inventory is what the genesis node holds for one cluster.
-type inventory struct {
+// inventoryCount is what the genesis node holds for one cluster.
+type inventoryCount struct {
 	hosts        int
 	hostMachines int
 }
@@ -364,24 +364,24 @@ type inventory struct {
 // clusterctl moves what it discovers and says nothing about the rest, so a move
 // can report success having left every Host and HostMachine behind. Counting
 // both sides is the only way to tell.
-func countInventory(ctx context.Context, c client.Client, namespace string) (inventory, error) {
+func countInventory(ctx context.Context, c client.Client, namespace string) (inventoryCount, error) {
 	hosts := &infrav1.HostList{}
 	if err := c.List(ctx, hosts, client.InNamespace(namespace)); err != nil {
-		return inventory{}, fmt.Errorf("count the hosts in %s: %w", namespace, err)
+		return inventoryCount{}, fmt.Errorf("count the hosts in %s: %w", namespace, err)
 	}
 
 	machines := &infrav1.HostMachineList{}
 	if err := c.List(ctx, machines, client.InNamespace(namespace)); err != nil {
-		return inventory{}, fmt.Errorf("count the host machines in %s: %w", namespace, err)
+		return inventoryCount{}, fmt.Errorf("count the host machines in %s: %w", namespace, err)
 	}
 
-	return inventory{hosts: len(hosts.Items), hostMachines: len(machines.Items)}, nil
+	return inventoryCount{hosts: len(hosts.Items), hostMachines: len(machines.Items)}, nil
 }
 
 // verifyMoved confirms the cluster and its inventory landed before the bootstrap
 // cluster is destroyed: deleting it while the move was incomplete would strand
 // the cluster with no management plane at all.
-func verifyMoved(ctx context.Context, kubeconfig, namespace, name string, held inventory) error {
+func verifyMoved(ctx context.Context, kubeconfig, namespace, name string, held inventoryCount) error {
 	c, err := kube.NewClient(kubeconfig)
 	if err != nil {
 		return err
