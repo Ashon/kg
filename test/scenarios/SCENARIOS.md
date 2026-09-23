@@ -25,10 +25,11 @@ can give. A case that needs what a fleet cannot give is skipped and reported as
 skipped, because a case that quietly asserts less than it claims is worse than
 no case at all.
 
-| Driver   | Machines                       | Gives             | Runs where |
-| -------- | ------------------------------ | ----------------- | ---------- |
-| `lima`   | Lima virtual machines          | `vip`, `reboot`   | macOS      |
-| `docker` | containers on one docker bridge| neither           | CI, Linux  |
+| Driver    | Machines                        | Gives           | Runs where          |
+| --------- | ------------------------------- | --------------- | ------------------- |
+| `lima`    | Lima virtual machines           | `vip`, `reboot` | macOS               |
+| `libvirt` | KVM virtual machines            | `vip`, `reboot` | Linux, CI nightly   |
+| `docker`  | containers on one docker bridge | neither         | Linux, CI per push  |
 
 kgenesis reaches a host over SSH and nothing else, so a container that answers
 on port 22 and runs kubeadm is indistinguishable from a machine as far as the
@@ -42,13 +43,17 @@ Hosts are named `kg-cp-N` and `kg-worker-N`. There are more of them than any one
 cluster asks for: a scale-out needs a host free to move onto, and two clusters
 need a control plane host each.
 
-| Driver   | Control planes | Workers | Cluster asks for   | Endpoint                    |
-| -------- | -------------- | ------- | ------------------ | --------------------------- |
-| `lima`   | 3              | 3       | 3 control, 2 worker| a VIP on `192.168.105.0/24` |
-| `docker` | 2              | 2       | 1 control, 1 worker| the first control plane     |
+| Driver    | Control planes | Workers | Cluster asks for    | Endpoint                    |
+| --------- | -------------- | ------- | ------------------- | --------------------------- |
+| `lima`    | 3              | 3       | 3 control, 2 worker | a VIP on `192.168.105.0/24` |
+| `libvirt` | 3              | 2       | 3 control, 1 worker | a VIP on `192.168.105.0/24` |
+| `docker`  | 2              | 2       | 1 control, 1 worker | the first control plane     |
+
+`libvirt` uses the same addresses as `lima` on purpose, so a scenario cannot
+come to depend on one of them.
 
 The genesis node is the machine running the suite: this Mac under `lima`, the
-runner under `docker`.
+runner under `libvirt` and `docker`.
 
 ## The paths
 

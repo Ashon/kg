@@ -1,0 +1,86 @@
+# SPDX-FileCopyrightText: 2026 Ashon
+# SPDX-License-Identifier: MIT
+name: Scenarios on machines
+
+# The container fleet runs on every push and covers six of the seven paths. This
+# one runs the seventh as well, on real virtual machines, because kube-vip elects
+# over ARP and a container has neither a kernel nor a network stack of its own.
+#
+# It is slower and heavier than the container run - five machines on a four core
+# runner - so it runs nightly rather than per push.
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: scenarios-machines-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  machines:
+    name: Scenarios on virtual machines
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install kind
+        uses: helm/kind-action@v1
+        with:
+          install_only: true
+          version: v0.33.0
+
+      # /dev/kvm is there on a Linux runner but owned by the kvm group, so
+      # without this the machines would be emulated and the run would never
+      # finish.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: Install libvirt
+        run: |
+          sudo apt-get update -qq
+          # dnsmasq-base is what libvirt hands a NAT network's addresses out
+          # with; without it the network defines and refuses to start.
+          sudo apt-get install -y -qq --no-install-recommends \
+            qemu-system-x86 libvirt-daemon-system libvirt-clients virtinst qemu-utils \
+            dnsmasq-base
+          sudo systemctl enable --now libvirtd
+          sudo usermod -aG libvirt,kvm "$USER"
+          sudo virsh net-list --all
+
+      # The bootstrap cluster is still a kind cluster in Docker, and it needs
+      # the same room the container fleet does.
+      - name: Raise the inotify limits
+        run: |
+          sudo sysctl -w fs.inotify.max_user_instances=8192
+          sudo sysctl -w fs.inotify.max_user_watches=1048576
+
+      # /mnt is the runner's large ephemeral disk. A base image and an overlay
+      # per machine do not fit on the root filesystem.
+      - name: Make room for the machine images
+        run: |
+          sudo install -d -m 0755 /mnt/kgenesis-images
+          df -h / /mnt
+
+      - name: Run the scenarios
+        env:
+          DRIVER: libvirt
+          K8S_MINOR: "1.33"
+          TIMEOUT: 40m
+        # sg runs the step with the new group membership, which the shell this
+        # step starts in does not have yet.
+        run: sg libvirt -c "sg kvm -c './test/scenarios/run.sh'"

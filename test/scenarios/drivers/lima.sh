@@ -102,8 +102,8 @@ driver_provision() {
     for host in $(host_names); do
       (
         limactl shell "${host}" -- sudo bash -s -- \
-          "$(driver_host_ip "${host}")" "${K8S_MINOR}" "${PUBKEY}" \
-          < "${ROOT}/test/scenarios/lima/provision-host.sh" 2>&1 | tail -1 | sed 's/^/    /'
+          "$(driver_host_ip "${host}")" "${NETWORK_IFACE}" "${K8S_MINOR}" "${PUBKEY}" \
+          < "${ROOT}/test/scenarios/provision-host.sh" 2>&1 | tail -1 | sed 's/^/    /'
       ) &
     done
     wait
