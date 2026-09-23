@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
@@ -29,7 +30,8 @@ func newInventoryCommand(opts *Options) *cobra.Command {
 		Use:   "inventory",
 		Short: "Inspect the pool of pre-provisioned hosts",
 	}
-	cmd.AddCommand(newInventoryCheckCommand(opts), newInventoryListCommand(opts))
+	cmd.AddCommand(newInventoryCheckCommand(opts), newInventoryListCommand(opts),
+		newInventoryTrustCommand(opts))
 	return cmd
 }
 
@@ -270,4 +272,95 @@ func joinWarnings(existing, additional string) string {
 		return additional
 	}
 	return existing + "; " + additional
+}
+
+// sshConfigFor turns one host's entry in the genesis config into a dial config.
+// The private key is read here rather than at load time so a key that is missing
+// or unreadable is reported against the host that needs it.
+func sshConfigFor(host config.HostConfig) (ssh.Config, error) {
+	cfg := ssh.Config{
+		Address:        host.Address,
+		Port:           host.Port,
+		User:           host.User,
+		Policy:         ssh.HostKeyPolicy(host.HostKeyPolicy),
+		Password:       host.Password,
+		Passphrase:     host.Passphrase,
+		KnownPublicKey: host.PublicKey,
+	}
+	if host.PrivateKeyPath != "" {
+		key, err := os.ReadFile(host.PrivateKeyPath)
+		if err != nil {
+			return ssh.Config{}, fmt.Errorf("read private key: %w", err)
+		}
+		cfg.PrivateKey = key
+	}
+	return cfg, nil
+}
+
+// newInventoryTrustCommand lets an operator accept a host key that changed.
+func newInventoryTrustCommand(opts *Options) *cobra.Command {
+	return &cobra.Command{
+		Use:   "trust HOST...",
+		Short: "Accept the host key a machine presents now",
+		Long: `Forgets the SSH host key pinned for a host, so the next connection pins
+whatever the machine presents.
+
+Under the TOFU policy kgenesis pins the key it first sees and refuses the host
+for good if it ever changes, because that is what an impersonated machine looks
+like. A machine that was legitimately reinstalled looks exactly the same, and
+this is how an operator says which of the two it was.
+
+Name only the hosts you mean. A host whose key changed for a reason you cannot
+account for is a host to go and look at, not one to trust.`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, names []string) error {
+			cfg, err := opts.Load()
+			if err != nil {
+				return err
+			}
+
+			c, err := kube.NewClient(opts.BootstrapKubeconfig())
+			if err != nil {
+				return fmt.Errorf("%w\n\nRun `%s` first", err, invoke("init"))
+			}
+
+			out := cmd.OutOrStdout()
+			for _, name := range names {
+				host := &infrav1.Host{}
+				key := types.NamespacedName{Namespace: cfg.Cluster.Namespace, Name: name}
+				if err := c.Get(cmd.Context(), key, host); err != nil {
+					return fmt.Errorf("read host %s: %w", key, err)
+				}
+
+				if host.Spec.HostKeyPolicy == infrav1.HostKeyPolicyStrict {
+					return fmt.Errorf("%s uses the Strict policy, where the key to accept is "+
+						"spec.publicKey and changing it is a deliberate edit, not a command", name)
+				}
+
+				if host.Status.ObservedPublicKey == "" {
+					fmt.Fprintf(out, "%s has no pinned key; the next connection will pin one.\n", name)
+					continue
+				}
+
+				previous := abbreviateKey(host.Status.ObservedPublicKey)
+				host.Status.ObservedPublicKey = ""
+				if err := c.Status().Update(cmd.Context(), host); err != nil {
+					return fmt.Errorf("forget the pinned key for %s: %w", name, err)
+				}
+				fmt.Fprintf(out, "%s: forgot %s; the next connection pins what the machine presents.\n",
+					name, previous)
+			}
+			return nil
+		},
+	}
+}
+
+// abbreviateKey shortens an authorized_keys line enough to recognise without
+// filling the terminal.
+func abbreviateKey(authorizedKey string) string {
+	fields := strings.Fields(authorizedKey)
+	if len(fields) < 2 || len(fields[1]) < 20 {
+		return authorizedKey
+	}
+	return fields[0] + " " + fields[1][:10] + "..." + fields[1][len(fields[1])-6:]
 }

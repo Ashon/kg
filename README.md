@@ -246,22 +246,33 @@ the one the cluster uses.
 | `Insecure` | Accepts any key. Lab use only                                     |
 
 A mismatch is never retried into: it means the host changed identity, which an
-operator has to resolve.
+operator has to resolve. A machine that was legitimately reinstalled looks
+exactly like one being impersonated, so kgenesis will not guess:
+
+```console
+$ kg inventory trust kg-cp-1
+kg-cp-1: forgot ecdsa-sha2- AAAAE2VjZH...tqs4oY=; the next connection pins what the machine presents.
+```
+
+Under `Strict` there is nothing to forget: the key to accept is `publicKey` in
+the configuration, and changing it is a deliberate edit rather than a command.
 
 ## Commands
 
 | Command                    | What it does                                        |
 | -------------------------- | --------------------------------------------------- |
-| `config init` / `validate` | Write and check `kgenesis.yaml`                     |
+| `config init` / `validate` | Write and check `~/.kg/config`                      |
 | `inventory check`          | SSH preflight against the config alone              |
 | `inventory list`           | The pool as the management cluster sees it          |
+| `inventory trust`          | Accept the host key a machine presents now          |
 | `init`                     | Bootstrap cluster, providers, inventory             |
 | `cluster create`           | Apply the cluster; `--dry-run` prints the manifests |
 | `cluster status`           | Where the rollout has got to; `--watch` follows     |
 | `cluster delete`           | Tear the cluster down and reset its hosts           |
 | `cni install`              | Apply the configured CNI manifests                  |
 | `kubeconfig`               | Write the target cluster's kubeconfig               |
-| `pivot`                    | Move management to the cluster, delete kind         |
+| `clusters`                 | The clusters this genesis node manages              |
+| `eject` / `pivot`          | Release one cluster and drop the genesis node       |
 | `reset`                    | Delete the bootstrap cluster only                   |
 
 Everything kgenesis keeps lives under `~/.kg`: the configuration, the bootstrap
