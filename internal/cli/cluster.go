@@ -442,8 +442,7 @@ func waitForClusterGone(ctx context.Context, c client.Client, key types.Namespac
 		cluster := &clusterv1.Cluster{}
 		err := c.Get(ctx, key, cluster)
 		if apierrors.IsNotFound(err) {
-			fmt.Fprintf(out, "Cluster %s is gone; its hosts are back in the pool.\n", key)
-			return nil
+			return reportReleasedHosts(ctx, c, key, out)
 		}
 		if err != nil {
 			return err
@@ -474,4 +473,43 @@ func newBootstrapFailedError(failures []machineFailure) error {
 	fmt.Fprintf(&b, "\nThe full log is at %s on each host. "+
 		"Delete the cluster to reset the hosts and start again.\n", provisioner.LogPath)
 	return errors.New(b.String())
+}
+
+// reportReleasedHosts says what the hosts came back as.
+//
+// A host is returned to the pool whether or not kgenesis could reach it to run
+// kubeadm reset, because a Machine stuck forever on hardware that is powered off
+// helps nobody. Reporting both the same way is what turns that trade-off into a
+// surprise: the next cluster claims a host still carrying another one's
+// certificates and etcd data, and nothing said so.
+func reportReleasedHosts(ctx context.Context, c client.Client, key types.NamespacedName, out io.Writer) error {
+	fmt.Fprintf(out, "Cluster %s is gone.\n", key)
+
+	hosts := &infrav1.HostList{}
+	if err := c.List(ctx, hosts, client.InNamespace(key.Namespace)); err != nil {
+		return fmt.Errorf("read the host pool in %s: %w", key.Namespace, err)
+	}
+
+	var unverified []*infrav1.Host
+	for i := range hosts.Items {
+		host := &hosts.Items[i]
+		if condition := meta.FindStatusCondition(host.Status.Conditions, infrav1.HostResetCondition); condition != nil &&
+			condition.Status != metav1.ConditionTrue {
+			unverified = append(unverified, host)
+		}
+	}
+
+	fmt.Fprintf(out, "  %d host(s) back in the pool\n", len(hosts.Items)-len(unverified))
+	if len(unverified) == 0 {
+		return nil
+	}
+
+	fmt.Fprintf(out, "\n%d host(s) were released without being reset and still carry this cluster:\n",
+		len(unverified))
+	for _, host := range unverified {
+		condition := meta.FindStatusCondition(host.Status.Conditions, infrav1.HostResetCondition)
+		fmt.Fprintf(out, "  %s (%s): %s\n", host.Name, host.Spec.Address, condition.Message)
+	}
+	fmt.Fprintf(out, "\nClean them by hand before another cluster claims them.\n")
+	return nil
 }

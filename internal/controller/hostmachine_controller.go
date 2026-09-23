@@ -435,22 +435,36 @@ func (r *HostMachineReconciler) reconcileDelete(
 	sshCtx, cancel := context.WithTimeout(ctx, sshOperationTimeout)
 	defer cancel()
 
+	reset := metav1.Condition{
+		Type:   infrav1.HostResetCondition,
+		Status: metav1.ConditionTrue,
+		Reason: infrav1.ReasonResetSucceeded,
+		Message: fmt.Sprintf("kubeadm state removed for %s/%s",
+			hostMachine.Namespace, hostMachine.Name),
+	}
+
 	if conn, err := connect(sshCtx, r.Client, host); err != nil {
 		// An unreachable host cannot be reset, and blocking deletion on that would
 		// leave the Machine stuck forever on hardware that may simply be powered
-		// off. The host is returned to the pool as Pending so the next probe
-		// decides whether it is usable, and its state is left for an operator.
+		// off. The host is returned to the pool either way, and the condition is
+		// what tells the two apart afterwards.
 		logger.Info("Could not reach the host to reset it; releasing it as unverified",
 			"host", host.Name, "error", err.Error())
+		reset.Status = metav1.ConditionFalse
+		reset.Reason = infrav1.ReasonHostUnreachable
+		reset.Message = truncate(err.Error(), conditionMessageLimit)
 	} else {
 		err := provisioner.Reset(sshCtx, conn)
 		_ = conn.Close()
 		if err != nil {
 			logger.Error(err, "Reset did not complete cleanly; releasing the host anyway", "host", host.Name)
+			reset.Status = metav1.ConditionFalse
+			reset.Reason = infrav1.ReasonResetIncomplete
+			reset.Message = truncate(err.Error(), conditionMessageLimit)
 		}
 	}
 
-	if err := r.releaseHost(ctx, host); err != nil {
+	if err := r.releaseHost(ctx, host, reset); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -460,7 +474,7 @@ func (r *HostMachineReconciler) reconcileDelete(
 	return ctrl.Result{}, nil
 }
 
-func (r *HostMachineReconciler) releaseHost(ctx context.Context, host *infrav1.Host) error {
+func (r *HostMachineReconciler) releaseHost(ctx context.Context, host *infrav1.Host, reset metav1.Condition) error {
 	delete(host.Labels, infrav1.ClusterNameLabel)
 	if err := r.Update(ctx, host); err != nil && !apierrors.IsNotFound(err) {
 		return err
@@ -469,6 +483,8 @@ func (r *HostMachineReconciler) releaseHost(ctx context.Context, host *infrav1.H
 	host.Status.ClaimRef = nil
 	// Pending rather than Available: only a fresh probe may declare it usable.
 	host.Status.Phase = infrav1.HostPhasePending
+	setCondition(&host.Status.Conditions, reset.Type, reset.Status, reset.Reason,
+		reset.Message, host.Generation)
 	if err := r.Status().Update(ctx, host); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}

@@ -40,6 +40,16 @@ const (
 
 	// HostMachineHostClaimedCondition reports whether a Host was matched and claimed.
 	HostMachineHostClaimedCondition = "HostClaimed"
+
+	// HostResetCondition reports whether the kubeadm state was actually removed
+	// when the Host was returned to the pool.
+	//
+	// A host is released whether or not it could be reached, because a Machine
+	// that cannot be deleted because its hardware is powered off helps nobody.
+	// Without this the two outcomes are indistinguishable, and a pool that looks
+	// clean hands a machine still carrying another cluster's certificates and
+	// etcd data to the next one.
+	HostResetCondition = "Reset"
 )
 
 // Condition reasons.
@@ -53,4 +63,7 @@ const (
 	ReasonProbeFailed             = "ProbeFailed"
 	ReasonProbeSucceeded          = "ProbeSucceeded"
 	ReasonDeleting                = "Deleting"
+	ReasonResetSucceeded          = "ResetSucceeded"
+	ReasonResetIncomplete         = "ResetIncomplete"
+	ReasonHostUnreachable         = "HostUnreachable"
 )
