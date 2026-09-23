@@ -7,6 +7,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -346,5 +349,37 @@ runcmd:
 	written := extractPayload(t, string(script), "/run/kubeadm/kubeadm.yaml")
 	if strings.Contains(written, "kubeletExtraArgs") {
 		t.Errorf("kubeletExtraArgs was added without a provider ID:\n%s", written)
+	}
+}
+
+// A join that fails inside an && list is the shape CABPK emits, and it is the one
+// case set -e lets through. The script has to stop there: reporting a host as
+// provisioned when it never joined is worse than reporting nothing.
+func TestRenderStopsOnAFailedCommandList(t *testing.T) {
+	const userData = `## template: jinja
+#cloud-config
+
+runcmd:
+  - "false && echo joined"
+  - "echo kept-going"
+`
+
+	script, err := Render([]byte(userData), Options{})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bootstrap.sh")
+	if err := os.WriteFile(path, script, 0o700); err != nil {
+		t.Fatalf("write the script: %v", err)
+	}
+
+	out, err := exec.Command("bash", path).CombinedOutput()
+	if err == nil {
+		t.Fatalf("the script reported success after a failed command:\n%s", out)
+	}
+	if strings.Contains(string(out), "kept-going") {
+		t.Errorf("the script carried on past the failure:\n%s", out)
 	}
 }

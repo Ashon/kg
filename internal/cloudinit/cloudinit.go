@@ -137,7 +137,7 @@ func Render(userData []byte, opts Options) ([]byte, error) {
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", section.name, err)
 			}
-			b.WriteString(line)
+			b.WriteString(guardCommand(line))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -298,4 +298,18 @@ func dirOf(path string) string {
 
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// guardCommand makes one cloud-init command stop the script when it fails.
+//
+// set -e is not enough on its own. A shell exempts every command in an && or ||
+// list except the last from errexit, and CABPK writes its join exactly that way:
+//
+//	kubeadm join --config ... && echo success > /run/cluster-api/...
+//
+// A join that fails there leaves the script running and exiting 0, so kgenesis
+// would report a host as provisioned that never joined anything. The braces keep
+// a trailing comment or an ampersand in the original from swallowing the guard.
+func guardCommand(line string) string {
+	return "{\n" + line + "\n} || exit $?"
 }
