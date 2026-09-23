@@ -162,7 +162,10 @@ func (r *HostMachineReconciler) reconcileNormal(
 	hostMachine.Spec.ProviderID = ptr(providerID)
 	hostMachine.Status.Addresses = addressesFor(host)
 
-	script, err := cloudinit.Render(bootstrapData, cloudinit.Options{ProviderID: providerID})
+	script, err := cloudinit.Render(bootstrapData, cloudinit.Options{
+		ProviderID:  providerID,
+		HostAddress: host.Spec.Address,
+	})
 	if err != nil {
 		// Unsupported bootstrap data will never render, so this is not retried:
 		// it needs the KubeadmConfigSpec changed.

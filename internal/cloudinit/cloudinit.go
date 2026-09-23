@@ -68,6 +68,18 @@ type Options struct {
 	// provider targets. Going through kubeadm means the flag lands in
 	// KUBELET_KUBEADM_ARGS, which nothing else competes for.
 	ProviderID string
+
+	// HostAddress is the address kgenesis reaches the host on. It becomes the
+	// kubelet's --node-ip and, on a control plane node, the API server's
+	// advertise address.
+	//
+	// Left to themselves both default to the address of the default route, which
+	// on a multi-homed host is rarely the one the cluster talks over. On hosts
+	// behind a per-machine NAT it is worse than wrong: every node publishes the
+	// same address, so Nodes collide, the kubernetes Service points at whichever
+	// answers, and etcd members cannot find each other. The inventory already
+	// says which address is the real one, so it is pinned here.
+	HostAddress string
 }
 
 // kubeadmConfigKinds are the documents whose nodeRegistration decides how the
@@ -80,6 +92,7 @@ var kubeadmConfigKinds = map[string]bool{
 const (
 	kubeadmAPIGroupPrefix = "kubeadm.k8s.io/"
 	providerIDFlag        = "provider-id"
+	nodeIPFlag            = "node-ip"
 )
 
 // Render converts cloud-config user data into a bash script.
@@ -107,8 +120,15 @@ func Render(userData []byte, opts Options) ([]byte, error) {
 		return nil, err
 	}
 
+	patch := kubeadmPatch{advertiseAddress: opts.HostAddress}
 	if opts.ProviderID != "" {
-		if err := setProviderID(files, opts.ProviderID); err != nil {
+		patch.kubeletArgs = append(patch.kubeletArgs, kubeletArg{providerIDFlag, opts.ProviderID})
+	}
+	if opts.HostAddress != "" {
+		patch.kubeletArgs = append(patch.kubeletArgs, kubeletArg{nodeIPFlag, opts.HostAddress})
+	}
+	if !patch.empty() {
+		if err := patchKubeadmConfigs(files, patch); err != nil {
 			return nil, err
 		}
 	}

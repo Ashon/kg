@@ -15,18 +15,37 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// setProviderID writes the provider ID into whichever kubeadm configuration the
+// kubeletArg is one flag to pin under nodeRegistration.kubeletExtraArgs. They
+// are applied in order, so the rendered configuration is stable.
+type kubeletArg struct {
+	name  string
+	value string
+}
+
+// kubeadmPatch is everything kgenesis knows about the machine that the bootstrap
+// data, written before any host was claimed, could not.
+type kubeadmPatch struct {
+	kubeletArgs      []kubeletArg
+	advertiseAddress string
+}
+
+// empty reports whether there is nothing to write.
+func (p kubeadmPatch) empty() bool {
+	return len(p.kubeletArgs) == 0 && p.advertiseAddress == ""
+}
+
+// patchKubeadmConfigs writes the patch into whichever kubeadm configuration the
 // bootstrap data carries.
 //
 // Nothing is skipped silently: if no kubeadm configuration is found, the machine
 // would join without a provider ID, Cluster API would never pair its Node with
 // its Machine, and the cluster would look healthy while remaining unmanageable.
 // That is worth failing the bootstrap over.
-func setProviderID(files []*resolvedFile, providerID string) error {
+func patchKubeadmConfigs(files []*resolvedFile, patch kubeadmPatch) error {
 	patched := 0
 
 	for _, f := range files {
-		content, changed, err := injectProviderID(f.content, providerID)
+		content, changed, err := patchKubeadmConfig(f.content, patch)
 		if err != nil {
 			return fmt.Errorf("write_files %s: %w", f.Path, err)
 		}
@@ -47,9 +66,9 @@ func setProviderID(files []*resolvedFile, providerID string) error {
 	return nil
 }
 
-// injectProviderID sets nodeRegistration.kubeletExtraArgs on every kubeadm
-// configuration document in content, and reports whether it changed anything.
-func injectProviderID(content []byte, providerID string) ([]byte, bool, error) {
+// patchKubeadmConfig rewrites every kubeadm configuration document in content,
+// and reports whether it changed anything.
+func patchKubeadmConfig(content []byte, patch kubeadmPatch) ([]byte, bool, error) {
 	documents, err := splitYAML(content)
 	if err != nil {
 		// Not every write_files entry is YAML; those simply have nothing to patch.
@@ -73,8 +92,15 @@ func injectProviderID(content []byte, providerID string) ([]byte, bool, error) {
 			continue
 		}
 
-		if err := setKubeletExtraArg(doc, apiVersion, providerIDFlag, providerID); err != nil {
-			return nil, false, fmt.Errorf("%s: %w", kind, err)
+		for _, arg := range patch.kubeletArgs {
+			if err := setKubeletExtraArg(doc, apiVersion, arg.name, arg.value); err != nil {
+				return nil, false, fmt.Errorf("%s: %w", kind, err)
+			}
+		}
+		if patch.advertiseAddress != "" {
+			if err := setAdvertiseAddress(doc, kind, patch.advertiseAddress); err != nil {
+				return nil, false, fmt.Errorf("%s: %w", kind, err)
+			}
 		}
 
 		out, err := yaml.Marshal(doc)
@@ -212,4 +238,48 @@ func joinYAML(documents [][]byte) []byte {
 		b.WriteByte('\n')
 	}
 	return b.Bytes()
+}
+
+// setAdvertiseAddress pins the address a control plane node publishes for its
+// API server, and with it the client and peer URLs etcd derives from it.
+//
+// kubeadm defaults it to the address of the default route, which is the same
+// mistake --node-ip corrects for the kubelet. On a multi-homed host it picks the
+// wrong interface; behind a per-machine NAT every control plane node ends up
+// publishing an identical address, so the kubernetes Service points at whichever
+// answers and the second etcd member never reaches the first.
+func setAdvertiseAddress(doc map[string]any, kind, address string) error {
+	switch kind {
+	case "InitConfiguration":
+		return setNested(doc, address, "localAPIEndpoint", "advertiseAddress")
+	case "JoinConfiguration":
+		// Only a control plane join brings an endpoint of its own; a worker has
+		// nothing to advertise.
+		if _, ok := doc["controlPlane"]; !ok {
+			return nil
+		}
+		return setNested(doc, address, "controlPlane", "localAPIEndpoint", "advertiseAddress")
+	}
+	return nil
+}
+
+// setNested writes value at path, creating the mappings along the way.
+func setNested(doc map[string]any, value string, path ...string) error {
+	current := doc
+	for i, key := range path[:len(path)-1] {
+		next, present := current[key]
+		if !present || next == nil {
+			created := map[string]any{}
+			current[key] = created
+			current = created
+			continue
+		}
+		m, ok := next.(map[string]any)
+		if !ok {
+			return fmt.Errorf("%s is not a mapping", strings.Join(path[:i+1], "."))
+		}
+		current = m
+	}
+	current[path[len(path)-1]] = value
+	return nil
 }
