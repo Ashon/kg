@@ -7,6 +7,8 @@ import (
 	"context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -14,7 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
 )
@@ -96,10 +100,33 @@ func (r *HostClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 // SetupWithManager registers the controller.
+// SetupWithManager also watches the owning Cluster.
+//
+// Reconciliation is skipped while a Cluster is paused, and clusterctl pauses one
+// for the length of a move. Without this the unpause at the end reaches the
+// Cluster and nothing else: every object arrives in its new home and sits there,
+// because the event that said to look again was never delivered.
 func (r *HostClusterReconciler) SetupWithManager(mgr ctrl.Manager, opts controller.Options) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrav1.HostCluster{}).
+		Watches(
+			&clusterv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(clusterToHostCluster),
+		).
 		WithOptions(opts).
 		Named("hostcluster").
 		Complete(r)
+}
+
+func clusterToHostCluster(_ context.Context, obj client.Object) []reconcile.Request {
+	cluster, ok := obj.(*clusterv1.Cluster)
+	if !ok || cluster.Spec.InfrastructureRef.Kind != "HostCluster" {
+		return nil
+	}
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Namespace: cluster.Namespace,
+			Name:      cluster.Spec.InfrastructureRef.Name,
+		},
+	}}
 }

@@ -128,7 +128,14 @@ func (r *HostReconciler) probe(ctx context.Context, logger logr.Logger, host *in
 		MemoryMB:         info.MemoryMB,
 		ContainerRuntime: info.ContainerRuntime,
 	}
+	// A host that answers is usable, not free. The claim is on the object as well
+	// as in status, so a pool whose status was dropped - by a clusterctl move, or
+	// by anything else that recreates these objects - still knows which of its
+	// hosts are running someone's cluster.
 	host.Status.Phase = infrav1.HostPhaseAvailable
+	if claimedBy := host.Labels[infrav1.ClaimedByLabel]; claimedBy != "" {
+		host.Status.Phase = infrav1.HostPhaseClaimed
+	}
 	setCondition(&host.Status.Conditions, infrav1.HostReachableCondition, metav1.ConditionTrue,
 		infrav1.ReasonProbeSucceeded, "SSH probe succeeded", host.Generation)
 

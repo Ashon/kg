@@ -19,6 +19,15 @@ const (
 	// selectors that kgenesis renders: "control-plane" or "worker".
 	RoleLabel = "kgenesis.io/role"
 
+	// ClaimedByLabel names the HostMachine holding a Host.
+	//
+	// The claim also lives in status.claimRef, which carries the UID and is what
+	// wins a race between two machines reaching for the same host. Status does
+	// not survive a clusterctl move, though, and a pool that forgets its claims
+	// hands hosts that are already running to the next machine that asks. This
+	// is the same claim written where a move carries it.
+	ClaimedByLabel = "kgenesis.io/claimed-by"
+
 	// ClusterNameLabel records which cluster a claimed Host belongs to.
 	ClusterNameLabel = "kgenesis.io/cluster-name"
 )

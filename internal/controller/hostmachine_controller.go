@@ -310,6 +310,23 @@ func (r *HostMachineReconciler) claimHost(
 		}
 	}
 
+	// The same claim, read from where a clusterctl move carries it. Status does
+	// not survive the move, so after one every Host looks free and every
+	// HostMachine looks new; taking a fresh host here would run kubeadm again on
+	// a machine that is already serving.
+	for i := range hosts.Items {
+		host := &hosts.Items[i]
+		if host.Labels[infrav1.ClaimedByLabel] != hostMachine.Name {
+			continue
+		}
+		logger.Info("Recovered a claim recorded on the host", "host", host.Name)
+		if err := r.recordClaim(ctx, host, hostMachine); err != nil {
+			return nil, err
+		}
+		hostMachine.Status.HostRef = &corev1.LocalObjectReference{Name: host.Name}
+		return host, nil
+	}
+
 	for i := range hosts.Items {
 		host := &hosts.Items[i]
 
@@ -325,22 +342,24 @@ func (r *HostMachineReconciler) claimHost(
 			continue
 		}
 
-		host.Status.ClaimRef = &corev1.ObjectReference{
-			APIVersion: infrav1.GroupVersion.String(),
-			Kind:       "HostMachine",
-			Namespace:  hostMachine.Namespace,
-			Name:       hostMachine.Name,
-			UID:        hostMachine.UID,
+		// The label goes on first, with a plain Update: the resourceVersion check
+		// is what stops two HostMachines from claiming the same host, and doing it
+		// on the object rather than on status is what makes the claim survive a
+		// move.
+		if host.Labels == nil {
+			host.Labels = map[string]string{}
 		}
-		host.Status.Phase = infrav1.HostPhaseClaimed
-
-		// A plain Update, not a patch: the resourceVersion check is what stops two
-		// HostMachines from claiming the same host concurrently.
-		if err := r.Status().Update(ctx, host); err != nil {
+		host.Labels[infrav1.ClaimedByLabel] = hostMachine.Name
+		host.Labels[infrav1.ClusterNameLabel] = cluster.Name
+		if err := r.Update(ctx, host); err != nil {
 			if apierrors.IsConflict(err) {
 				logger.V(4).Info("Lost the race to claim a host, trying the next one", "host", host.Name)
 				continue
 			}
+			return nil, err
+		}
+
+		if err := r.recordClaim(ctx, host, hostMachine); err != nil {
 			return nil, err
 		}
 
@@ -349,33 +368,26 @@ func (r *HostMachineReconciler) claimHost(
 		// to lose track of a host that is already taken.
 		hostMachine.Status.HostRef = &corev1.LocalObjectReference{Name: host.Name}
 		logger.Info("Claimed host", "host", host.Name, "address", host.Spec.Address)
-
-		if err := r.labelClaimedHost(ctx, host, cluster.Name); err != nil {
-			// The claim stands; the label is only there for operators reading the
-			// pool, and the next reconcile will set it.
-			logger.Error(err, "Could not label the claimed host", "host", host.Name)
-		}
 		return host, nil
 	}
 
 	return nil, nil
 }
 
-// labelClaimedHost records cluster ownership on the Host so `kubectl get hosts
-// -l kgenesis.io/cluster-name=...` answers "which hosts belong to this cluster".
-func (r *HostMachineReconciler) labelClaimedHost(ctx context.Context, host *infrav1.Host, clusterName string) error {
-	if host.Labels[infrav1.ClusterNameLabel] == clusterName {
-		return nil
+// recordClaim writes the claim into the Host's status, where it carries the UID
+// and the phase an operator reads.
+func (r *HostMachineReconciler) recordClaim(
+	ctx context.Context, host *infrav1.Host, hostMachine *infrav1.HostMachine,
+) error {
+	host.Status.ClaimRef = &corev1.ObjectReference{
+		APIVersion: infrav1.GroupVersion.String(),
+		Kind:       "HostMachine",
+		Namespace:  hostMachine.Namespace,
+		Name:       hostMachine.Name,
+		UID:        hostMachine.UID,
 	}
-	patchHelper, err := patch.NewHelper(host, r.Client)
-	if err != nil {
-		return err
-	}
-	if host.Labels == nil {
-		host.Labels = map[string]string{}
-	}
-	host.Labels[infrav1.ClusterNameLabel] = clusterName
-	return patchHelper.Patch(ctx, host)
+	host.Status.Phase = infrav1.HostPhaseClaimed
+	return r.Status().Update(ctx, host)
 }
 
 func (r *HostMachineReconciler) markHostProvisioned(ctx context.Context, host *infrav1.Host) error {
@@ -476,6 +488,7 @@ func (r *HostMachineReconciler) reconcileDelete(
 
 func (r *HostMachineReconciler) releaseHost(ctx context.Context, host *infrav1.Host, reset metav1.Condition) error {
 	delete(host.Labels, infrav1.ClusterNameLabel)
+	delete(host.Labels, infrav1.ClaimedByLabel)
 	if err := r.Update(ctx, host); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
@@ -533,9 +546,48 @@ func (r *HostMachineReconciler) SetupWithManager(mgr ctrl.Manager, opts controll
 			&clusterv1.Machine{},
 			handler.EnqueueRequestsFromMapFunc(machineToHostMachine),
 		).
+		// Reconciliation is skipped while a Cluster is paused, and clusterctl
+		// pauses one for the length of a move. Without this the unpause at the
+		// end reaches the Cluster and nothing else, and every machine sits in
+		// its new home waiting for an event that was already delivered.
+		Watches(
+			&clusterv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(r.clusterToHostMachines),
+		).
 		WithOptions(opts).
 		Named("hostmachine").
 		Complete(r)
+}
+
+func (r *HostMachineReconciler) clusterToHostMachines(
+	ctx context.Context, obj client.Object,
+) []reconcile.Request {
+	cluster, ok := obj.(*clusterv1.Cluster)
+	if !ok {
+		return nil
+	}
+
+	machines := &clusterv1.MachineList{}
+	if err := r.List(ctx, machines,
+		client.InNamespace(cluster.Namespace),
+		client.MatchingLabels{clusterv1.ClusterNameLabel: cluster.Name}); err != nil {
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(machines.Items))
+	for i := range machines.Items {
+		machine := &machines.Items[i]
+		if machine.Spec.InfrastructureRef.Kind != "HostMachine" {
+			continue
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: machine.Namespace,
+				Name:      machine.Spec.InfrastructureRef.Name,
+			},
+		})
+	}
+	return requests
 }
 
 func machineToHostMachine(_ context.Context, obj client.Object) []reconcile.Request {

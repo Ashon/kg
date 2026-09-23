@@ -198,3 +198,83 @@ func TestClaimHostSkipsHostsThatAreNotAvailable(t *testing.T) {
 		t.Errorf("claimed %s, but nothing in the pool is usable", host.Name)
 	}
 }
+
+// A clusterctl move recreates every object with a new UID and drops status
+// entirely. What survives is metadata, so the claim has to be there too: without
+// it every Host reads as free and every HostMachine as new, and the first thing
+// the moved provider does is run kubeadm again on machines that are serving.
+func TestClaimHostRecoversAClaimThatSurvivedAMove(t *testing.T) {
+	claimed := availableHost("cp-1", "10.0.0.11", infrav1.RoleControlPlane)
+	claimed.Labels[infrav1.ClaimedByLabel] = "cp-machine"
+	// Status is what the move dropped, all of it: no claimRef, and no phase
+	// either until a probe runs. A host in that state is not one the ordinary
+	// path would hand out, so choosing it can only be the recovery.
+	claimed.Status = infrav1.HostStatus{}
+
+	// Free, probed, and a match for the selector: what the ordinary path would
+	// take if it did not know cp-1 was already this machine's.
+	spare := availableHost("cp-2", "10.0.0.12", infrav1.RoleControlPlane)
+
+	// A new UID, because the object on the other side of a move is a new object.
+	machine := controlPlaneMachine("cp-machine", types.UID("uid-after-the-move"))
+	cluster := &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "lab", Namespace: "default"}}
+
+	r := newReconciler(t, claimed, spare, machine, cluster)
+
+	host, err := r.claimHost(t.Context(), log.Log, cluster, machine)
+	if err != nil {
+		t.Fatalf("claimHost: %v", err)
+	}
+	if host == nil {
+		t.Fatal("expected the claim on the host to be recovered, got no host")
+	}
+	if host.Name != "cp-1" {
+		t.Errorf("recovered %s, want the host it already had, cp-1", host.Name)
+	}
+
+	// The claim is written back into status with the UID this side of the move,
+	// so everything that reads claimRef agrees with the label again.
+	var stored infrav1.Host
+	if err := r.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "cp-1"}, &stored); err != nil {
+		t.Fatalf("read cp-1: %v", err)
+	}
+	if stored.Status.ClaimRef == nil || stored.Status.ClaimRef.UID != "uid-after-the-move" {
+		t.Errorf("claimRef is %v, want the machine's new UID", stored.Status.ClaimRef)
+	}
+	if stored.Status.Phase != infrav1.HostPhaseClaimed {
+		t.Errorf("cp-1 is %s, want Claimed", stored.Status.Phase)
+	}
+
+	var untouched infrav1.Host
+	if err := r.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "cp-2"}, &untouched); err != nil {
+		t.Fatalf("read cp-2: %v", err)
+	}
+	if untouched.Labels[infrav1.ClaimedByLabel] != "" {
+		t.Errorf("the spare was claimed as well: %v", untouched.Labels)
+	}
+}
+
+// Claiming records the machine on the host itself, not only in status, or the
+// claim would not outlive the move that the recovery above depends on.
+func TestClaimHostRecordsTheClaimOnTheHost(t *testing.T) {
+	free := availableHost("cp-1", "10.0.0.11", infrav1.RoleControlPlane)
+	machine := controlPlaneMachine("cp-machine", types.UID("machine-uid"))
+	cluster := &clusterv1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "lab", Namespace: "default"}}
+
+	r := newReconciler(t, free, machine, cluster)
+
+	if _, err := r.claimHost(t.Context(), log.Log, cluster, machine); err != nil {
+		t.Fatalf("claimHost: %v", err)
+	}
+
+	var stored infrav1.Host
+	if err := r.Get(t.Context(), types.NamespacedName{Namespace: "default", Name: "cp-1"}, &stored); err != nil {
+		t.Fatalf("read cp-1: %v", err)
+	}
+	if stored.Labels[infrav1.ClaimedByLabel] != "cp-machine" {
+		t.Errorf("%s is %q, want cp-machine", infrav1.ClaimedByLabel, stored.Labels[infrav1.ClaimedByLabel])
+	}
+	if stored.Labels[infrav1.ClusterNameLabel] != "lab" {
+		t.Errorf("%s is %q, want lab", infrav1.ClusterNameLabel, stored.Labels[infrav1.ClusterNameLabel])
+	}
+}
