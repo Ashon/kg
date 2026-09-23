@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -253,18 +254,24 @@ func checkSelfManageable(ctx context.Context, c client.Client, cfg *config.Confi
 // place, so a second cluster on the same genesis node cannot take the hosts the
 // released one is running on.
 func pauseCluster(ctx context.Context, c client.Client, cfg *config.Config) error {
-	cluster := &clusterv1.Cluster{}
 	key := types.NamespacedName{Namespace: cfg.Cluster.Namespace, Name: cfg.Cluster.Name}
-	if err := c.Get(ctx, key, cluster); err != nil {
-		return fmt.Errorf("read cluster %s: %w", key, err)
-	}
 
-	if cluster.Spec.Paused != nil && *cluster.Spec.Paused {
-		return nil
-	}
-
-	cluster.Spec.Paused = ptr.To(true)
-	if err := c.Update(ctx, cluster); err != nil {
+	// A Cluster that is still being reconciled is written to by several
+	// controllers at once, so the version read a moment ago is routinely stale by
+	// the time this update lands. That is an ordinary conflict to read again and
+	// retry, not a reason to stop half way through letting a cluster go.
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		cluster := &clusterv1.Cluster{}
+		if err := c.Get(ctx, key, cluster); err != nil {
+			return err
+		}
+		if cluster.Spec.Paused != nil && *cluster.Spec.Paused {
+			return nil
+		}
+		cluster.Spec.Paused = ptr.To(true)
+		return c.Update(ctx, cluster)
+	})
+	if err != nil {
 		return fmt.Errorf("release cluster %s: %w", key, err)
 	}
 	return nil

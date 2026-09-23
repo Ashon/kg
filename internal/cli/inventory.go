@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
@@ -336,8 +337,16 @@ account for is a host to go and look at, not one to trust.`,
 				}
 
 				previous := abbreviateKey(host.Status.ObservedPublicKey)
-				host.Status.ObservedPublicKey = ""
-				if err := c.Status().Update(cmd.Context(), host); err != nil {
+				// The Host controller probes on its own schedule, so the version
+				// read a moment ago may already be stale.
+				err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					if err := c.Get(cmd.Context(), key, host); err != nil {
+						return err
+					}
+					host.Status.ObservedPublicKey = ""
+					return c.Status().Update(cmd.Context(), host)
+				})
+				if err != nil {
 					return fmt.Errorf("forget the pinned key for %s: %w", name, err)
 				}
 				fmt.Fprintf(out, "%s: forgot %s; the next connection pins what the machine presents.\n",
