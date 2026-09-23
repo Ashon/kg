@@ -223,6 +223,20 @@ competes for.
 Deleting a machine runs `kubeadm reset` and the matching cleanup before the host
 returns to the pool.
 
+### Node addresses
+
+The same rewrite pins the address each node publishes: `node-ip` for the kubelet
+and, on a control plane node, `localAPIEndpoint.advertiseAddress` for the API
+server and the etcd URLs derived from it. Both otherwise default to the address
+of the default route.
+
+That default is wrong on any host with more than one interface, and actively
+breaks a cluster whose hosts sit behind a per-machine NAT: every node publishes
+the identical NAT address, so Nodes collide on it, the `kubernetes` Service
+points at whichever answers, and the second etcd member never finds the first.
+The address in the inventory is the one kgenesis reaches the host on, so that is
+the one the cluster uses.
+
 ## Host key policies
 
 | Policy     | Behaviour                                                        |
