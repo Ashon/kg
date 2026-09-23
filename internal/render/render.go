@@ -101,6 +101,10 @@ func Render(cfg *config.Config) (*Objects, error) {
 	return objs, nil
 }
 
+// clusterctlMoveLabel marks an object that clusterctl must move even though no
+// Cluster owns it.
+const clusterctlMoveLabel = "clusterctl.cluster.x-k8s.io/move"
+
 // renderSecrets deduplicates credentials: a fleet that shares one key gets one
 // Secret rather than one per host.
 func renderSecrets(cfg *config.Config) ([]*corev1.Secret, map[string]string, error) {
@@ -155,12 +159,18 @@ func renderSecrets(cfg *config.Config) ([]*corev1.Secret, map[string]string, err
 			data["password"] = []byte(cred.password)
 		}
 
+		labels := poolLabels(cfg)
+		// One Secret can serve several Hosts, so it belongs to none of them and
+		// nothing owns it. clusterctl would leave it on the genesis node, and the
+		// ejected cluster could no longer reach a single host.
+		labels[clusterctlMoveLabel] = ""
+
 		secrets = append(secrets, &corev1.Secret{
 			TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      SSHSecretName(f),
 				Namespace: cfg.Cluster.Namespace,
-				Labels:    poolLabels(cfg),
+				Labels:    labels,
 			},
 			Type: corev1.SecretTypeOpaque,
 			Data: data,

@@ -31,10 +31,14 @@ genesis node (kind)                        target cluster (your hosts)
 | KCP (control plane)      |  cloud-init   |                                 |
 | kgenesis infra provider  |               |   kube-vip holds the VIP        |
 +--------------------------+               +---------------------------------+
-            |                                             ^
-            +------------ clusterctl move ----------------+
-                        then kind is deleted
+            |
+            +-- the cluster is released, then kind is deleted
 ```
+
+What the target cluster gets is a working kubeadm cluster, not a copy of the
+genesis node. Releasing it leaves it on its own: the SSH keys stay behind, and
+nothing kgenesis installed keeps running on the hosts. See
+[Releasing a cluster](#releasing-a-cluster).
 
 The provider adds four resources:
 
@@ -84,7 +88,7 @@ $ kg config validate        # check it without contacting anything
 $ kg inventory check        # connect to every host and report
 $ kg init                   # bootstrap cluster + providers + inventory
 $ kg cluster create         # stamp out the cluster and wait
-$ kg pivot                  # hand over management, drop the genesis node
+$ kg eject                  # let the cluster go, drop the genesis node
 ```
 
 The configuration is read from `~/.kg/config` unless `--config` or
@@ -302,6 +306,39 @@ is what makes ejecting one of several possible at all.
 
 `kg eject` releases one cluster and leaves the rest alone. The genesis node is
 deleted once nothing is left for it to manage, and kept otherwise.
+
+## Releasing a cluster
+
+`kg eject` hands the cluster's kubeconfig over and stops managing it. The cluster
+itself is not touched: it is an ordinary kubeadm cluster and needs nothing from
+kgenesis to serve.
+
+What it gives up is Cluster API. Nodes are not added, replaced or upgraded
+through kgenesis afterwards, and there is no going back - Cluster API does not
+adopt an existing kubeadm cluster. What it gains is that the SSH keys never leave
+the genesis node, and nothing kgenesis installed is left running with the power
+to reset the hosts underneath it.
+
+A released cluster is left paused on the genesis node rather than deleted, so its
+host claims stand and a later cluster cannot take the hosts it is running on.
+`kg clusters` shows it as `Released`. When the genesis node is deleted, the
+record goes with it.
+
+`--self-manage` moves the Cluster API objects into the cluster instead, which is
+what `clusterctl move` means by a pivot.
+
+It is refused unless the cluster could survive managing itself. Cluster API keeps
+a cluster healthy by replacing machines, and a self-managed cluster has to do
+that to the machines its own controllers run on: `KubeadmControlPlane` adds a
+machine before it removes one, and a `MachineDeployment` does the same, so each
+needs a host free to add. Below three control plane replicas etcd loses quorum
+the moment one goes. A cluster that cannot meet this can still be released, which
+asks nothing of it.
+
+It is also not finished. `clusterctl move` carries objects but not their status,
+by design: a provider is expected to rebuild status on the next reconcile.
+kgenesis does not yet, so the moved provider re-claims hosts it has already
+provisioned and runs kubeadm against nodes that have already joined.
 
 ## Development
 

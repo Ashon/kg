@@ -121,7 +121,7 @@ and runs that cloud-init on it over SSH.`,
 
 			fmt.Fprintf(out, "\nCluster %s is ready.\n\n", cfg.Cluster.Name)
 			fmt.Fprintf(out, "  %swrite the cluster's kubeconfig\n", pad(invoke("kubeconfig")))
-			fmt.Fprintf(out, "  %shand management over and drop the genesis node\n", pad(invoke("pivot")))
+			fmt.Fprintf(out, "  %slet the cluster go and drop the genesis node\n", pad(invoke("eject")))
 			return nil
 		},
 	}

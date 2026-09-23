@@ -132,6 +132,13 @@ type HostStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels="cluster.x-k8s.io/provider=infrastructure-kgenesis"
+// clusterctl discovers only the CRDs carrying its own label, and moves only the
+// objects it can reach from a Cluster. A Host hangs off no Cluster - it is the
+// pool a Cluster draws from - so it is marked for a forced move as well.
+// Without both, an ejected cluster arrives with HostMachines whose Hosts stayed
+// behind on a genesis node that is about to be deleted.
+// +kubebuilder:metadata:labels="clusterctl.cluster.x-k8s.io="
+// +kubebuilder:metadata:labels="clusterctl.cluster.x-k8s.io/move="
 // +kubebuilder:resource:path=hosts,scope=Namespaced,shortName=hst,categories=cluster-api
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.spec.address`

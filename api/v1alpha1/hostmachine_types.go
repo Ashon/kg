@@ -72,6 +72,7 @@ type HostMachineStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels="cluster.x-k8s.io/v1beta2=v1alpha1"
 // +kubebuilder:metadata:labels="cluster.x-k8s.io/provider=infrastructure-kgenesis"
+// +kubebuilder:metadata:labels="clusterctl.cluster.x-k8s.io="
 // +kubebuilder:resource:path=hostmachines,scope=Namespaced,shortName=hma,categories=cluster-api
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Provisioned",type=boolean,JSONPath=`.status.initialization.provisioned`

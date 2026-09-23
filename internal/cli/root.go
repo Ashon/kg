@@ -65,7 +65,7 @@ The usual sequence:
   ` + pad(invoke("inventory check")) + `confirm every host is reachable and ready
   ` + pad(invoke("init")) + `bring up the bootstrap cluster and the providers
   ` + pad(invoke("cluster create")) + `stamp out the cluster and wait for it
-  ` + pad(invoke("pivot")) + `hand management to the new cluster, drop the genesis node`,
+  ` + pad(invoke("eject")) + `let the new cluster go, drop the genesis node`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
