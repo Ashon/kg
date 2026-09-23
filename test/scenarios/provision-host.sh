@@ -65,8 +65,12 @@ sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.to
 systemctl restart containerd
 systemctl enable containerd
 
+# Removed first: gpg stops on a prompt when the file it is asked to write
+# already exists, and a machine being reprovisioned already has one.
+rm -f /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR}/deb/Release.key" |
   gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+chmod 0644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR}/deb/ /" \
   > /etc/apt/sources.list.d/kubernetes.list
 

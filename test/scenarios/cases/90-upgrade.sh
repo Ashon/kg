@@ -20,10 +20,12 @@
 requires_upgrade() { echo "vip"; }
 
 # upgrade_packages_to moves every host to another Kubernetes minor, the way an
-# image rebuild would. The hold has to come off first: the provisioning that put
-# these packages there pinned them.
+# image rebuild would, and then checks that every one of them actually moved.
+# The hold has to come off first: the provisioning that put these packages there
+# pinned them.
 upgrade_packages_to() {
-  local minor="$1" host ip
+  local minor="$1" host ip stragglers=""
+
   for host in $(host_names); do
     ip="$(driver_host_ip "${host}")"
     (
@@ -31,18 +33,40 @@ upgrade_packages_to() {
         set -e
         export DEBIAN_FRONTEND=noninteractive
         apt-mark unhold kubelet kubeadm kubectl >/dev/null
+
+        # Each Kubernetes minor signs its packages with its own key, so the
+        # keyring is replaced rather than added to. Removed first: gpg stops on
+        # a prompt when the file it is asked to write already exists, and there
+        # is nobody here to answer it.
+        rm -f /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v${minor}/deb/Release.key |
+          gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        chmod 0644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v${minor}/deb/ /' \
           > /etc/apt/sources.list.d/kubernetes.list
-        curl -fsSL https://pkgs.k8s.io/core:/stable:/v${minor}/deb/Release.key |
-          gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
         apt-get update -qq
         apt-get install -y -qq --allow-change-held-packages kubelet kubeadm kubectl
         apt-mark hold kubelet kubeadm kubectl >/dev/null
-        kubeadm version -o short
-      " 2>&1 | tail -1 | sed "s/^/    ${host} /"
+      " >/dev/null 2>&1 || true
     ) &
   done
   wait
+
+  # Checked rather than trusted. These run in the background so their exit codes
+  # go nowhere, and a host left on the old packages would otherwise only show up
+  # as a rollout that never finishes.
+  for host in $(host_names); do
+    local got
+    got="$(on_host "$(driver_host_ip "${host}")" "kubeadm version -o short" 2>/dev/null | tr -d '[:space:]')"
+    if [[ "${got}" == v${minor}.* ]]; then
+      info "${host} ${got}"
+    else
+      stragglers="${stragglers} ${host}=${got:-unreachable}"
+    fi
+  done
+  [[ -z "${stragglers}" ]] ||
+    fail "these machines are not on ${minor}:${stragglers}"
 }
 
 scenario_upgrade() {
@@ -67,8 +91,6 @@ scenario_upgrade() {
   upgrade_packages_to "${minor}"
   local landed
   landed="$(on_host "$(driver_host_ip kg-cp-1)" "kubeadm version -o short" 2>/dev/null | tr -d '[:space:]')"
-  [[ "${landed}" == v${minor}.* ]] ||
-    fail "the hosts report kubeadm ${landed} after the upgrade, not a ${minor} release"
   info "the machines carry kubeadm ${landed}"
 
   # From inside the cluster, because there is no genesis node any more. This is
