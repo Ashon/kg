@@ -76,6 +76,38 @@ upgrade_packages_to() {
     fail "these machines are not on ${minor}:${stragglers}"
 }
 
+# record_retiring notes which machines are marked for deletion at this moment. A
+# rollout replaces one machine at a time and each replacement takes minutes, so
+# polling sees them; whatever it misses is left out of the check below rather
+# than guessed at.
+record_retiring() {
+  KUBECONFIG="${WORKLOAD}" kubectl get machine -n lab \
+    -o jsonpath='{range .items[?(@.metadata.deletionTimestamp)]}{.metadata.name}{"\n"}{end}' \
+    2>/dev/null >> "${WORKDIR}/retiring" || true
+}
+
+# retired_in_creation_order fails if a machine was replaced before an older one
+# in the same set. Which machine goes next is the question an upgrade has to be
+# able to answer before it starts, and a random pick shows up here as a machine
+# retiring out of turn.
+retired_in_creation_order() {
+  local order_file="$1" what="$2" name index last=0 seen=""
+  while read -r name; do
+    index="$(grep -n -x -F -- "${name}" "${order_file}" | cut -d: -f1)" || true
+    [[ -n "${index}" ]] || continue
+    ((index > last)) ||
+      fail "the ${what} rollout replaced ${name} after a younger machine (${seen})"
+    last="${index}"
+    seen="${seen}${seen:+, }${name}"
+  done < <(awk '!seen[$0]++' "${WORKDIR}/retiring")
+
+  [[ -n "${seen}" ]] || {
+    info "no ${what} machine was caught between the polls"
+    return 0
+  }
+  info "the ${what} machines went oldest first: ${seen}"
+}
+
 scenario_upgrade() {
   local from minor attempt
 
@@ -117,6 +149,13 @@ scenario_upgrade() {
   done
   info "every node is back"
 
+  # The order to hold the rollout to. A machine is replaced rather than upgraded
+  # in place, so which one goes next is the whole question, and Cluster API is
+  # asked for the oldest on both sides.
+  machines_by_age "${WORKLOAD}" control-plane > "${WORKDIR}/machines-cp"
+  machines_by_age "${WORKLOAD}" worker > "${WORKDIR}/machines-worker"
+  : > "${WORKDIR}/retiring"
+
   # From inside the cluster, because there is no genesis node any more. This is
   # the difference a handover makes: the cluster rolls itself.
   log "Asking the cluster to roll itself to ${landed}"
@@ -128,6 +167,7 @@ scenario_upgrade() {
   log "Waiting for the rollout"
   for ((attempt = 1; attempt <= 120; attempt++)); do
     local old ready
+    record_retiring
     old="$(KUBECONFIG="${WORKLOAD}" kubectl get machine -n lab --no-headers 2>/dev/null |
       grep -cv "${landed}")" || old=0
     ready="$(KUBECONFIG="${WORKLOAD}" kubectl get nodes --no-headers 2>/dev/null |
@@ -142,6 +182,10 @@ scenario_upgrade() {
     ((attempt == 120)) && fail "the rollout did not finish in thirty minutes"
     sleep 15
   done
+
+  log "Checking the order it went in"
+  retired_in_creation_order "${WORKDIR}/machines-cp" "control plane"
+  retired_in_creation_order "${WORKDIR}/machines-worker" "worker"
 
   log "Checking what it rolled to"
   KUBECONFIG="${WORKLOAD}" kubectl get nodes -o wide

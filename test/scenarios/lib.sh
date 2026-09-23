@@ -334,3 +334,31 @@ nodes_all_at_version() {
     fail "not every node is on ${want}:
 $(echo "${wrong}" | sed 's/^/      /')"
 }
+
+# machines_by_age lists the lab cluster's machines of one role, oldest first,
+# which is the order Cluster API replaces them in. Ties go to the name, the way
+# Cluster API breaks them: creation timestamps are whole seconds and a control
+# plane can put two machines inside one.
+#
+#   machines_by_age <kubeconfig> control-plane|worker
+#
+# The namespace is the cluster's name, which is how kgenesis lays a cluster out.
+machines_by_age() {
+  local kubeconfig="$1" role="$2" selector="cluster.x-k8s.io/control-plane"
+  [[ "${role}" == "control-plane" ]] || selector="!${selector}"
+  KUBECONFIG="${kubeconfig}" kubectl get machine -n lab -l "${selector}" \
+    -o jsonpath='{range .items[*]}{.metadata.name} {.metadata.creationTimestamp}{"\n"}{end}' 2>/dev/null |
+    sort -k2,2 -k1,1 | awk 'NF == 2 { print $1 }'
+}
+
+# host_of_machine prints the host a machine sits on. The claim is recorded on
+# the host against the HostMachine, which is what the Machine points at.
+host_of_machine() {
+  local kubeconfig="$1" machine="$2" infra
+  infra="$(KUBECONFIG="${kubeconfig}" kubectl get machine -n lab "${machine}" \
+    -o jsonpath='{.spec.infrastructureRef.name}' 2>/dev/null)"
+  [[ -n "${infra}" ]] || return 0
+  KUBECONFIG="${kubeconfig}" kubectl get hosts -A \
+    -l "kgenesis.io/claimed-by=${infra}" \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null
+}

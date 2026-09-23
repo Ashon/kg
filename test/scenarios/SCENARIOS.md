@@ -94,9 +94,9 @@ trust` accepts the new key, and the pinned one is checked to be gone.
 Takes the worker pool from two replicas to three and back.
 
 Asserts: the new machine claims the spare host and its node joins Ready; scaling
-back removes one machine - whichever the `MachineDeployment` chooses, which is
-not necessarily the one that joined last - and returns its host to the pool as
-`Available`, with nothing of the cluster left on it.
+back removes the oldest machine, which the case names before it asks for the
+change, and returns that machine's host to the pool as `Available`, with nothing
+of the cluster left on it.
 
 ### 5. `rebuild` - a host can be used twice
 
@@ -158,8 +158,10 @@ with apt.
 Asserts: every node starts on the version the cluster was built at; the machines
 carry the new kubeadm afterwards; patching `spec.version` on the control plane
 and the worker pool - with `kubectl`, because there is no genesis node any more -
-rolls every machine; every node ends on the new version, still on its own
-address, still answering behind the VIP.
+rolls every machine; the machines are replaced oldest first, control plane and
+workers each in their own order, which the case watches for while the rollout
+runs; every node ends on the new version, still on its own address, still
+answering behind the VIP.
 
 The `libvirt` fleet is provisioned a minor below what this rolls to, so the
 earlier cases run on the older one. The rollout needs a host free of each role

@@ -28,7 +28,16 @@ scenario_scale() {
   nodes_advertise_their_own_address "${WORKLOAD}"
   info "${spare} joined and carries its own address"
 
-  log "Shrinking the pool back"
+  # Which machine goes is not the pool's choice to make arbitrarily: a
+  # MachineDeployment is asked to remove the oldest, so the host that comes back
+  # is the one the first worker was running on and can be named in advance.
+  local oldest retiring
+  oldest="$(machines_by_age "${STATE}/bootstrap.kubeconfig" worker | head -1)"
+  retiring="$(host_of_machine "${STATE}/bootstrap.kubeconfig" "${oldest}")"
+  [[ -n "${retiring}" ]] ||
+    fail "cannot tell which host the oldest worker machine ${oldest:-<none>} is on"
+
+  log "Shrinking the pool back, which should retire ${retiring}"
   kg cluster create --wait --timeout "${TIMEOUT}"
 
   local attempt nodes want="$((CONTROL_PLANE_REPLICAS + WORKER_REPLICAS))"
@@ -41,9 +50,7 @@ scenario_scale() {
   done
   every_node_ready "${WORKLOAD}" "${want}"
 
-  # Which machine a MachineDeployment removes is its own choice, so the host that
-  # comes back is not necessarily the one that went in last. What has to be true
-  # is that exactly one came back, and that it is usable again.
+  # Exactly one host comes back, and it is the one the retired machine was on.
   local freed count
   freed="$(KUBECONFIG="${STATE}/bootstrap.kubeconfig" kubectl get hosts -A \
     -l kgenesis.io/role=worker \
@@ -52,7 +59,9 @@ scenario_scale() {
   count="$(echo "${freed}" | grep -c . || true)"
   [[ "${count}" == "1" ]] ||
     fail "expected exactly one worker host back in the pool, found ${count}: ${freed}"
-  info "${freed} came back to the pool"
+  [[ "${freed}" == "${retiring}" ]] ||
+    fail "${freed} came back, but the oldest machine was on ${retiring}"
+  info "${freed} came back to the pool, as the oldest machine's host"
 
   # The point of scaling back is that the host is usable again, which means the
   # provider reset it rather than merely forgetting it.
