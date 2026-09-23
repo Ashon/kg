@@ -191,6 +191,15 @@ func reportCheck(out io.Writer, results []checkResult) error {
 	}
 
 	if failed > 0 {
+		// A denial by the operating system looks like a routing failure on every
+		// host at once. Said once, where the results are gathered, it reads as
+		// what it is: a condition of this machine, not of the fleet.
+		for _, r := range results {
+			if hint := ssh.DialHint(r.err); hint != "" {
+				fmt.Fprintf(out, "\n%s\n", hint)
+				break
+			}
+		}
 		return fmt.Errorf("%d of %d host(s) are not usable", failed, len(results))
 	}
 	fmt.Fprintf(out, "\n%d host(s) reachable, %d with warnings.\n", len(results), warned)
