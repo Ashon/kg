@@ -94,11 +94,28 @@ scenario_upgrade() {
 
   # kgenesis does not do this, and says so. A fleet upgrades its machines the way
   # it built them, which here is apt.
+  # Upgrading the packages under a running cluster is a shortcut. A fleet would
+  # replace the machine, which is what the rollout below does; doing it in place
+  # is how this case gets the new version onto the machines the rollout will move
+  # onto. It restarts every kubelet at once, so the control plane goes with them.
   log "Putting ${minor} on the machines"
   upgrade_packages_to "${minor}"
   local landed
   landed="$(on_host "$(driver_host_ip kg-cp-1)" "kubeadm version -o short" 2>/dev/null | tr -d '[:space:]')"
   info "the machines carry kubeadm ${landed}"
+
+  log "Waiting for the cluster to come back"
+  endpoint_answers "${WORKLOAD}" "${LAB_ENDPOINT}" 30
+  for ((attempt = 1; attempt <= 60; attempt++)); do
+    local ready
+    ready="$(KUBECONFIG="${WORKLOAD}" kubectl get nodes --no-headers 2>/dev/null |
+      grep -c ' Ready')" || ready=0
+    [[ "${ready}" == "$((CONTROL_PLANE_REPLICAS + WORKER_REPLICAS))" ]] && break
+    ((attempt == 60)) &&
+      fail "only ${ready} node(s) came back ten minutes after the kubelets restarted"
+    sleep 10
+  done
+  info "every node is back"
 
   # From inside the cluster, because there is no genesis node any more. This is
   # the difference a handover makes: the cluster rolls itself.
