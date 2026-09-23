@@ -95,7 +95,7 @@ func TestWriteFileStreamsContent(t *testing.T) {
 		t.Fatalf("expected 1 command, got %v", cmds)
 	}
 	for _, want := range []string{
-		"install -d -m 0755 '/var/lib/kgenesis'",
+		"mkdir -p '/var/lib/kgenesis'",
 		"cat > '/var/lib/kgenesis/bootstrap.sh'",
 		"chmod '0700' '/var/lib/kgenesis/bootstrap.sh'",
 	} {

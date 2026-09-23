@@ -293,8 +293,7 @@ func (c *Client) WriteFile(ctx context.Context, path string, content []byte, mod
 	var stderr bytes.Buffer
 	session.Stderr = &stderr
 
-	cmd := fmt.Sprintf("install -d -m 0755 %s && cat > %s && chmod %s %s",
-		shellQuote(dirOf(path)), shellQuote(path), shellQuote(mode), shellQuote(path))
+	cmd := writeFileCommand(path, mode)
 
 	done := make(chan error, 1)
 	go func() { done <- session.Run(cmd) }()
@@ -310,6 +309,19 @@ func (c *Client) WriteFile(ctx context.Context, path string, content []byte, mod
 		}
 		return nil
 	}
+}
+
+// writeFileCommand builds the remote side of WriteFile.
+//
+// mkdir -p rather than install -d: install sets the mode of a directory that is
+// already there, and the parent is sometimes one the system owns. Writing a
+// script to /tmp with install -d -m 0755 takes /tmp from 1777 to 0755, which
+// breaks every unprivileged process on that machine that needs a temporary
+// file - apt among them, which then reports every repository as unsigned and
+// says nothing about why.
+func writeFileCommand(path, mode string) string {
+	return fmt.Sprintf("mkdir -p %s && cat > %s && chmod %s %s",
+		shellQuote(dirOf(path)), shellQuote(path), shellQuote(mode), shellQuote(path))
 }
 
 // Close releases the connection.
