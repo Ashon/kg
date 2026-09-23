@@ -1,12 +1,50 @@
 # kgenesis
 
+[![CI](https://github.com/Ashon/kgenesis/actions/workflows/ci.yml/badge.svg)](https://github.com/Ashon/kgenesis/actions/workflows/ci.yml)
+[![Scenarios](https://github.com/Ashon/kgenesis/actions/workflows/scenarios.yml/badge.svg)](https://github.com/Ashon/kgenesis/actions/workflows/scenarios.yml)
+[![Scenarios on machines](https://github.com/Ashon/kgenesis/actions/workflows/scenarios-machines.yml/badge.svg)](https://github.com/Ashon/kgenesis/actions/workflows/scenarios-machines.yml)
+[![Latest release](https://img.shields.io/github/v/release/Ashon/kgenesis?include_prereleases&sort=semver)](https://github.com/Ashon/kgenesis/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 Turn a pool of pre-provisioned physical or virtual hosts into a Kubernetes
 cluster, from one machine acting as the genesis node.
 
 kgenesis stands up a throwaway Cluster API management cluster locally, uses the
 kubeadm bootstrap provider (CABPK) to generate each machine's cloud-init, pushes
-that over SSH to a host it claims from the pool, and then hands management to the
-cluster it built. The genesis node has no role after that.
+that over SSH to a host it claims from the pool, and then lets the finished
+cluster go. The genesis node has no role after that, and neither does kgenesis:
+what it leaves behind is an ordinary kubeadm cluster.
+
+## What it covers
+
+Every row is a path with a scenario behind it, and every scenario asserts what
+the path is supposed to leave behind rather than that it ran. The last column is
+where that scenario last passed, which is the answer to whether any of this is
+safe to rely on.
+
+| To | Run | Scenario | Verified on |
+| -- | --- | -------- | ----------- |
+| See whether the hosts are usable at all | `kg inventory check` | `inventory` | containers, machines |
+| Build a cluster on prepared hosts | `kg init`, `kg cluster create` | `build` | containers, machines |
+| Keep serving when the machine holding the VIP goes | nothing; kube-vip elects | `vip-failover` | machines |
+| Grow or shrink a worker pool | edit `workers[].replicas`, `kg cluster create` | `scale` | containers, machines |
+| Use the same hosts for another cluster | `kg cluster delete`, `kg cluster create` | `rebuild` | containers, machines |
+| Hand the cluster over and walk away | `kg eject` | `release` | containers, machines |
+| Run several clusters from one genesis node | a configuration each, `kg clusters` | `multi-cluster` | containers, machines |
+
+**containers** is every push: host containers on one docker bridge, which is
+enough for everything except an election over ARP. **machines** is nightly: KVM
+virtual machines with a kernel and a network stack each, where every scenario
+runs. [SCENARIOS.md](test/scenarios/SCENARIOS.md) says what each one asserts,
+and why.
+
+What has no scenario behind it, and is not finished:
+
+| Not covered | Where it stands |
+| ----------- | --------------- |
+| `kg eject --self-manage` | Moves Cluster API into the cluster so it manages itself. `clusterctl` carries objects but not their status, and kgenesis does not rebuild status on the next reconcile yet, so a moved provider re-claims hosts it has already provisioned. It is refused on a cluster too small to survive managing itself, and should not be pointed at one you care about. |
+| Upgrades | Nothing here has rolled a cluster to a new Kubernetes version. `KubeadmControlPlane` replaces machines one at a time, so it would need a host free to move onto. |
+| Preparing the hosts | kgenesis bootstraps machines that already have a container runtime, kubeadm, kubelet and kubectl. `kg inventory check` reports what is missing; putting it there is someone else's job. |
 
 ## Why this shape
 
