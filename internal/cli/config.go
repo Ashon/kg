@@ -119,6 +119,10 @@ kind: GenesisConfig
 
 cluster:
   name: lab
+  # Defaults to the cluster name. Each cluster gets its own namespace: it is
+  # what keeps one cluster's machines out of another's host pool, and what lets
+  # a single cluster be ejected while the genesis node keeps the rest.
+  # namespace: lab
   # The version kubeadm installs on the hosts. There is no default: pick the
   # version you actually want rather than inheriting whatever kgenesis was built
   # against.

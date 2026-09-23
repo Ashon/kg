@@ -34,6 +34,11 @@ const (
 // the cluster: a Machine that finds no Available host just waits, but applying
 // in order means the first reconcile can already claim.
 type Objects struct {
+	// Namespace holds everything belonging to this cluster. One per cluster is
+	// what keeps a second cluster's machines out of this one's host pool, and
+	// what lets this one be ejected on its own.
+	Namespace *corev1.Namespace
+
 	// Secrets hold SSH credentials, deduplicated across hosts.
 	Secrets []*corev1.Secret
 	// Hosts is the pool.
@@ -45,7 +50,8 @@ type Objects struct {
 
 // All returns every object in apply order.
 func (o *Objects) All() []client.Object {
-	out := make([]client.Object, 0, len(o.Secrets)+len(o.Hosts)+len(o.Infra)+1)
+	out := make([]client.Object, 0, len(o.Secrets)+len(o.Hosts)+len(o.Infra)+2)
+	out = append(out, o.Namespace)
 	for _, s := range o.Secrets {
 		out = append(out, s)
 	}
@@ -66,7 +72,16 @@ func Render(cfg *config.Config) (*Objects, error) {
 		return nil, err
 	}
 
-	objs := &Objects{Secrets: secrets}
+	objs := &Objects{
+		Namespace: &corev1.Namespace{
+			TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   cfg.Cluster.Namespace,
+				Labels: poolLabels(cfg),
+			},
+		},
+		Secrets: secrets,
+	}
 
 	for _, h := range cfg.Hosts {
 		objs.Hosts = append(objs.Hosts, renderHost(cfg, h, secretForHost[h.Name]))

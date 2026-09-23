@@ -153,7 +153,9 @@ func applyInventory(ctx context.Context, kubeconfig string, cfg *config.Config) 
 		return 0, err
 	}
 
-	inventory := make([]client.Object, 0, len(objects.Secrets)+len(objects.Hosts))
+	// The namespace has to exist before anything lands in it.
+	inventory := make([]client.Object, 0, len(objects.Secrets)+len(objects.Hosts)+1)
+	inventory = append(inventory, objects.Namespace)
 	for _, s := range objects.Secrets {
 		inventory = append(inventory, s)
 	}

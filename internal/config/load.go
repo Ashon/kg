@@ -17,7 +17,6 @@ import (
 
 // Defaults applied when a field is left empty.
 const (
-	DefaultNamespace            = "default"
 	DefaultAPIServerPort  int32 = 6443
 	DefaultSSHPort        int32 = 22
 	DefaultSSHUser              = "root"
@@ -91,8 +90,12 @@ func resolvePath(base, p string) string {
 
 // ApplyDefaults fills in every optional field. It is safe to call more than once.
 func (c *Config) ApplyDefaults() {
+	// Each cluster gets its own namespace, named after it. The genesis node
+	// manages several at once, and a namespace is the only boundary that both
+	// keeps one cluster's machines out of another's host pool and lets a single
+	// cluster be ejected: clusterctl moves a namespace, not a cluster.
 	if c.Cluster.Namespace == "" {
-		c.Cluster.Namespace = DefaultNamespace
+		c.Cluster.Namespace = c.Cluster.Name
 	}
 	if c.Cluster.ControlPlaneEndpoint.Port == 0 {
 		c.Cluster.ControlPlaneEndpoint.Port = DefaultAPIServerPort

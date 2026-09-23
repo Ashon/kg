@@ -280,6 +280,29 @@ cluster's kubeconfig, and the workload cluster's. Keeping the kubeconfigs out of
 `~/.kube` means bootstrapping never disturbs the contexts you already have.
 Override with `--state-dir`.
 
+## Several clusters from one genesis node
+
+A genesis node is not limited to one cluster. Keep a configuration per cluster
+and point at it:
+
+```console
+$ kg cluster create -c ~/.kg/lab.yaml
+$ kg cluster create -c ~/.kg/prod.yaml
+$ kg clusters
+CLUSTER  NAMESPACE  PHASE        ENDPOINT          HOSTS
+lab      lab        Provisioned  10.10.0.100:6443  5/5
+prod     prod       Provisioned  10.20.0.100:6443  7/9
+```
+
+Each cluster gets its own namespace, named after it unless `cluster.namespace`
+says otherwise. That is not tidiness. A machine draws from the host pool in its
+own namespace, so one cluster cannot take hosts meant for another, and
+`clusterctl` moves a namespace rather than a cluster, so a namespace per cluster
+is what makes ejecting one of several possible at all.
+
+`kg eject` releases one cluster and leaves the rest alone. The genesis node is
+deleted once nothing is left for it to manage, and kept otherwise.
+
 ## Development
 
 ```console
@@ -347,10 +370,10 @@ cmd/kgenesis/        the CLI (installed as kgenesis, aliased to kg)
 cmd/manager/         the provider controllers
 internal/cli/        command tree
 internal/cloudinit/  CABPK cloud-config to bash
-internal/config/     kgenesis.yaml
+internal/config/     the genesis configuration
 internal/controller/ the reconcilers
 internal/provisioner/ the detached run on a host, and the probe
-internal/render/     kgenesis.yaml to Cluster API objects
+internal/render/     the genesis configuration to Cluster API objects
 internal/ssh/        the transport
 config/              CRDs, RBAC and the controller Deployment
 test/e2e/            the end-to-end harness and its stand-in host image

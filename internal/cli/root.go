@@ -102,6 +102,7 @@ The usual sequence:
 		newCNICommand(opts),
 		newInitCommand(opts),
 		newClusterCommand(opts),
+		newClustersCommand(opts),
 		newKubeconfigCommand(opts),
 		newPivotCommand(opts),
 		newResetCommand(opts),

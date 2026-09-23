@@ -384,3 +384,31 @@ func TestRenderAppendsUserCommands(t *testing.T) {
 		t.Errorf("rendering mutated the configuration: %d pre commands", got)
 	}
 }
+
+// Everything belonging to a cluster goes in that cluster's namespace, and the
+// namespace itself has to be created before anything lands in it.
+func TestRenderCreatesTheClusterNamespace(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Cluster.Namespace = "fleet-a"
+
+	objects, err := Render(cfg)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	if objects.Namespace == nil || objects.Namespace.Name != "fleet-a" {
+		t.Fatalf("namespace object is %v, want fleet-a", objects.Namespace)
+	}
+	if all := objects.All(); all[0] != client.Object(objects.Namespace) {
+		t.Errorf("the namespace is not applied first: got %T", all[0])
+	}
+
+	for _, host := range objects.Hosts {
+		if host.Namespace != "fleet-a" {
+			t.Errorf("host %s is in %s, not the cluster's namespace", host.Name, host.Namespace)
+		}
+	}
+	if objects.Cluster.Namespace != "fleet-a" {
+		t.Errorf("the cluster is in %s", objects.Cluster.Namespace)
+	}
+}

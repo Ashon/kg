@@ -50,7 +50,7 @@ func TestLoadAppliesDefaults(t *testing.T) {
 	}
 
 	checks := map[string]struct{ got, want any }{
-		"namespace":             {cfg.Cluster.Namespace, DefaultNamespace},
+		"namespace":             {cfg.Cluster.Namespace, "lab"},
 		"api server port":       {cfg.Cluster.ControlPlaneEndpoint.Port, DefaultAPIServerPort},
 		"pod CIDR":              {cfg.Cluster.Network.PodCIDR, DefaultPodCIDR},
 		"service domain":        {cfg.Cluster.Network.ServiceDomain, DefaultServiceDomain},
@@ -233,5 +233,32 @@ func TestValidateReportsAPerHostKeyAgainstThatHost(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "hosts[3].privateKeyPath") {
 		t.Errorf("the error does not name the host that set it:\n%v", err)
+	}
+}
+
+// A genesis node manages several clusters at once. clusterctl moves a namespace
+// rather than a cluster, so one namespace per cluster is what makes ejecting a
+// single cluster possible, and it is also the only thing keeping one cluster's
+// machines out of another's host pool.
+func TestNamespaceDefaultsToTheClusterName(t *testing.T) {
+	cfg, err := Load(write(t, minimal))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Cluster.Namespace != cfg.Cluster.Name {
+		t.Errorf("namespace is %q, want the cluster name %q",
+			cfg.Cluster.Namespace, cfg.Cluster.Name)
+	}
+}
+
+func TestNamespaceCanBeSetExplicitly(t *testing.T) {
+	body := strings.Replace(minimal, "  name: lab\n", "  name: lab\n  namespace: fleet-a\n", 1)
+
+	cfg, err := Load(write(t, body))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Cluster.Namespace != "fleet-a" {
+		t.Errorf("namespace is %q, want fleet-a", cfg.Cluster.Namespace)
 	}
 }
