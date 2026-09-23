@@ -9,8 +9,10 @@ scenario_scale() {
   local grown="${WORKDIR}/grown.yaml"
 
   log "Growing the worker pool onto ${spare}"
+  # The same pool, one more worker asked of it.
   write_config "${grown}" lab "${LAB_ENDPOINT}" "${WORKDIR}/kindnet.yaml" \
-    1 "${CONTROL_PLANE_REPLICAS}" 1 "${WORKER_HOSTS}"
+    1 "${CONTROL_PLANE_HOSTS}" 1 "${WORKER_HOSTS}" \
+    "${CONTROL_PLANE_REPLICAS}" "${WORKER_HOSTS}"
   kgc "${grown}" cluster create --wait --timeout "${TIMEOUT}"
 
   # The machine is Running once it has joined; the node turns Ready once the CNI
