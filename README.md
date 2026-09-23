@@ -40,11 +40,12 @@ virtual machines with a kernel and a network stack each, where every scenario
 runs. [SCENARIOS.md](test/scenarios/SCENARIOS.md) says what each one asserts,
 and why.
 
-What has no scenario behind it, and is not finished:
-
-| Not covered | Where it stands |
-| ----------- | --------------- |
-| Preparing the hosts | kgenesis bootstraps machines that already have a container runtime, kubeadm, kubelet and kubectl. `kg inventory check` reports what is missing; putting it there is someone else's job, and so is replacing it for an upgrade. |
+What kgenesis does not do: prepare the hosts. It bootstraps machines that already
+have a container runtime, kubeadm, kubelet and kubectl, so the host decides which
+Kubernetes it can build. `kg inventory check` reports what is missing and flags a
+kubeadm a minor away from what the configuration asks for. Putting it there is
+someone else's job, and so is replacing it - an upgrade rolls machines onto hosts
+that already carry the version it is rolling to.
 
 ## Why this shape
 
@@ -375,7 +376,9 @@ host claims stand and a later cluster cannot take the hosts it is running on.
 record goes with it.
 
 `--self-manage` moves the Cluster API objects into the cluster instead, which is
-what `clusterctl move` means by a pivot.
+what `clusterctl move` means by a pivot. The cluster then keeps itself alive:
+the `upgrade` scenario rolls one to a newer Kubernetes with nothing but
+`kubectl`, because there is no genesis node left to ask.
 
 It is refused unless the cluster could survive managing itself. Cluster API keeps
 a cluster healthy by replacing machines, and a self-managed cluster has to do
@@ -385,10 +388,10 @@ needs a host free to add. Below three control plane replicas etcd loses quorum
 the moment one goes. A cluster that cannot meet this can still be released, which
 asks nothing of it.
 
-It is also not finished. `clusterctl move` carries objects but not their status,
-by design: a provider is expected to rebuild status on the next reconcile.
-kgenesis does not yet, so the moved provider re-claims hosts it has already
-provisioned and runs kubeadm against nodes that have already joined.
+`clusterctl move` carries objects but not their status, by design: a provider is
+expected to rebuild status on the next reconcile. kgenesis reads the claim back
+off the Host itself, where a move carries it, so what arrives is a cluster still
+running the hosts it had rather than one reaching for new ones.
 
 ## Development
 

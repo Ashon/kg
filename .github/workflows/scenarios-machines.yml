@@ -6,8 +6,9 @@ name: Scenarios on machines
 # one runs the seventh as well, on real virtual machines, because kube-vip elects
 # over ARP and a container has neither a kernel nor a network stack of its own.
 #
-# It is slower and heavier than the container run - five machines on a four core
-# runner - so it runs nightly rather than per push.
+# It is slower and heavier than the container run - six machines on a four core
+# runner, and a rollout that replaces every one of them - so it runs nightly
+# rather than per push.
 on:
   schedule:
     - cron: "0 4 * * *"
