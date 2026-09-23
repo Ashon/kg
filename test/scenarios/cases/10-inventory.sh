@@ -30,7 +30,7 @@ scenario_inventory() {
   # probe script stayed invisible.
   local runtimes
   runtimes="$(echo "${report}" | awk 'NR > 1 && NF > 6 { print $(NF-1), $NF }' | sort -u)"
-  echo "${runtimes}" | grep -qE '^[a-z]+ [0-9]+\.[0-9]+' ||
+  echo "${runtimes}" | grep -qE '^[a-z]+ v?[0-9]+\.[0-9]+' ||
     fail "the runtime column does not read as a name and a version:
 $(echo "${runtimes}" | sed 's/^/      /')"
   info "runtime: $(echo "${runtimes}" | head -1)"

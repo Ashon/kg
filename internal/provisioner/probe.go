@@ -40,10 +40,16 @@ fi
 runtime=
 for candidate in containerd crio dockerd; do
   if command -v "$candidate" >/dev/null 2>&1; then
-    # Each of these prints its own name and often a source path in --version,
-    # so the last field is taken rather than the whole line: "containerd
-    # github.com/containerd/containerd/v2 2.2.1" becomes "containerd 2.2.1".
-    version="$("$candidate" --version 2>/dev/null | head -1 | awk '{print $NF}')"
+    # Each of these prints its own name, and around the version whatever else
+    # it feels like: a source path, a build revision, a trailing comma. The
+    # last field is not the version - kind's containerd ends its line with a
+    # git revision - so the first field that reads like one is taken.
+    #
+    #   containerd github.com/containerd/containerd/v2 2.2.1        -> 2.2.1
+    #   containerd github.com/containerd/containerd/v2 v2.1.4 cb107 -> v2.1.4
+    #   Docker version 24.0.7, build afdd53b                        -> 24.0.7
+    version="$("$candidate" --version 2>/dev/null | head -1 | tr ' ' '\n' |
+      sed 's/[,;]$//' | grep -m1 -E '^v?[0-9]+\.[0-9]+' || true)"
     runtime="$candidate ${version}"
     break
   fi
