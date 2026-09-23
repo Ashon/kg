@@ -150,18 +150,25 @@ func Execute() {
 	}
 }
 
-// requireWorkloadKubeconfig returns a kubeconfig for the target cluster, writing
-// one from the management cluster when it is not on disk yet.
+// requireWorkloadKubeconfig returns a kubeconfig for the target cluster, taking
+// it from the management cluster whenever there is one to ask.
 func (o *Options) requireWorkloadKubeconfig(ctx context.Context, cfg *config.Config) (string, error) {
 	path := o.WorkloadKubeconfig(cfg.Cluster.Name)
-	if _, err := os.Stat(path); err == nil {
-		return path, nil
-	}
-
 	management := o.BootstrapKubeconfig()
+
 	if _, err := os.Stat(management); err != nil {
+		// Nothing left to ask. A released cluster's kubeconfig is all there is,
+		// and it is still good: nothing has rebuilt the cluster since.
+		if _, statErr := os.Stat(path); statErr == nil {
+			return path, nil
+		}
 		return "", fmt.Errorf("no management kubeconfig in %s; run `%s` first", o.StateDir, invoke("init"))
 	}
+
+	// The copy on disk is a convenience, not the record. A cluster torn down and
+	// built again on the same hosts has a new certificate authority, and the old
+	// file then fails with a TLS error naming neither the cluster nor the reason.
+	// While the genesis node is there to ask, what it holds wins.
 
 	kubeconfig, err := capi.GetKubeconfig(ctx, management, cfg.Cluster.Name, cfg.Cluster.Namespace)
 	if err != nil {
