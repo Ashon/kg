@@ -90,6 +90,12 @@ record_retiring() {
 # in the same set. Which machine goes next is the question an upgrade has to be
 # able to answer before it starts, and a random pick shows up here as a machine
 # retiring out of turn.
+#
+# What it holds the rollout to is the order recorded in this cluster, which is
+# the one clusterctl move wrote: a move recreates every machine, and the API
+# server stamps a fresh creationTimestamp on each. The order the cluster was
+# originally built in is not it, and cannot be checked from here - the
+# timestamps that held it went with the genesis node.
 retired_in_creation_order() {
   local order_file="$1" what="$2" name index last=0 seen=""
   while read -r name; do
@@ -149,9 +155,8 @@ scenario_upgrade() {
   done
   info "every node is back"
 
-  # The order to hold the rollout to. A machine is replaced rather than upgraded
-  # in place, so which one goes next is the whole question, and Cluster API is
-  # asked for the oldest on both sides.
+  # The order to hold the rollout to, read from this cluster after the handover
+  # rather than assumed from how it was built. See retired_in_creation_order.
   machines_by_age "${WORKLOAD}" control-plane > "${WORKDIR}/machines-cp"
   machines_by_age "${WORKLOAD}" worker > "${WORKDIR}/machines-worker"
   : > "${WORKDIR}/retiring"

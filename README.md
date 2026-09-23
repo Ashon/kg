@@ -411,6 +411,11 @@ A released host rejoins the pool only once it has been reset and probed, so a
 rollout that moves faster than a reset takes the next free host rather than
 waiting for the one it just gave back.
 
+`--self-manage` carries the rules but not the ages they sort on: a move recreates
+every machine, so after a handover the oldest is the one the move made first.
+Read the order rather than assume it, with
+`kubectl get machines -n lab --sort-by=.metadata.creationTimestamp`.
+
 [docs/rollout-order.md](docs/rollout-order.md) traces a rollout host by host,
 and says how to send a particular machine first or hold a host out of the pool.
 
