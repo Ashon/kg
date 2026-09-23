@@ -285,3 +285,11 @@ column_of() {
     }
   ' | sort -u
 }
+
+# free_hosts_by_role counts the hosts nothing has claimed, which is what a
+# handover needs one of per role and what a rollout moves onto.
+free_hosts_by_role() {
+  KUBECONFIG="${STATE}/bootstrap.kubeconfig" kubectl get hosts -A \
+    -o jsonpath='{range .items[*]}{.metadata.labels.kgenesis\.io/role} {.metadata.labels.kgenesis\.io/claimed-by}{"\n"}{end}' 2>/dev/null |
+    awk '$2 == "" { print $1 }' | sort | uniq -c | awk '{print $2, $1}' | sort
+}

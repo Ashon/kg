@@ -24,13 +24,17 @@ readonly KIND_NETWORK="kind"
 # cluster and the build. Three control planes is the smallest number that keeps
 # etcd quorum while one machine is stopped, which is the whole reason for
 # running on machines rather than containers.
-CONTROL_PLANE_HOSTS="${CONTROL_PLANE_HOSTS:-3}"
+# Four control plane hosts for three replicas: a handover is refused without one
+# free, because KubeadmControlPlane adds a machine before it removes one.
+CONTROL_PLANE_HOSTS="${CONTROL_PLANE_HOSTS:-4}"
 CONTROL_PLANE_REPLICAS="${CONTROL_PLANE_REPLICAS:-3}"
 WORKER_HOSTS="${WORKER_HOSTS:-2}"
 WORKER_REPLICAS="${WORKER_REPLICAS:-1}"
 
-CP_MEMORY_MB="${CP_MEMORY_MB:-2048}"
-WORKER_MEMORY_MB="${WORKER_MEMORY_MB:-1536}"
+# Six machines have to fit beside the bootstrap cluster on a sixteen gigabyte
+# runner, so these are the smallest a control plane and a worker come up on.
+CP_MEMORY_MB="${CP_MEMORY_MB:-1792}"
+WORKER_MEMORY_MB="${WORKER_MEMORY_MB:-1280}"
 # kubeadm refuses to bring up a control plane on fewer than two CPUs, and that
 # is a check worth keeping rather than relaxing. Three of them on a four core
 # runner is oversubscribed, which costs time and nothing else: a control plane

@@ -46,7 +46,7 @@ need a control plane host each.
 | Driver    | Control planes | Workers | Cluster asks for    | Endpoint                    |
 | --------- | -------------- | ------- | ------------------- | --------------------------- |
 | `lima`    | 3              | 3       | 3 control, 2 worker | a VIP on `192.168.105.0/24` |
-| `libvirt` | 3              | 2       | 3 control, 1 worker | a VIP on `192.168.105.0/24` |
+| `libvirt` | 4              | 2       | 3 control, 1 worker | a VIP on `192.168.105.0/24` |
 | `docker`  | 2              | 2       | 1 control, 1 worker | the first control plane     |
 
 `libvirt` uses the same addresses as `lima` on purpose, so a scenario cannot
@@ -125,3 +125,20 @@ own namespace; `--self-manage` is refused on `alpha`, which has one control plan
 and nothing spare to roll onto, and the refusal leaves it untouched; releasing
 `alpha` leaves the genesis node running and `beta` untouched; `alpha` then reads
 as `Released`; releasing `beta` takes the genesis node with it.
+
+### 8. `self-manage` - the cluster carries its own management
+
+A fresh cluster with three control planes, handed its own Cluster API with
+`kg eject --self-manage`.
+
+Asserts: the objects, the SSH credential and the provider all arrive; every
+machine comes back to Running without kubeadm being run again; the hosts that
+were free before the handover are the same ones free after it, because a
+provider that failed to recognise what it inherited would claim fresh ones; the
+genesis node is gone.
+
+`clusterctl move` recreates every object with a new UID and carries no status, so
+this is the path that says whether the claim survives being moved. It needs a
+host free of each role, which is what `--self-manage` is refused without, so the
+`lima` and `libvirt` fleets carry one more control plane than the cluster asks
+for.

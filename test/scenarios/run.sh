@@ -52,7 +52,7 @@ done
 
 # The order they run in. Each one depends on the state the one before it leaves,
 # which is why this is a list and not a directory listing.
-readonly ALL_SCENARIOS=(inventory build vip-failover scale rebuild release multi-cluster)
+readonly ALL_SCENARIOS=(inventory build vip-failover scale rebuild release multi-cluster self-manage)
 
 selected=("$@")
 ((${#selected[@]} == 0)) && selected=("${ALL_SCENARIOS[@]}")

@@ -31,6 +31,7 @@ safe to rely on.
 | Use the same hosts for another cluster | `kg cluster delete`, `kg cluster create` | `rebuild` | containers, machines |
 | Hand the cluster over and walk away | `kg eject` | `release` | containers, machines |
 | Run several clusters from one genesis node | a configuration each, `kg clusters` | `multi-cluster` | containers, machines |
+| Leave the cluster managing itself | `kg eject --self-manage` | `self-manage` | machines |
 
 **containers** is every push: host containers on one docker bridge, which is
 enough for everything except an election over ARP. **machines** is nightly: KVM
@@ -42,8 +43,7 @@ What has no scenario behind it, and is not finished:
 
 | Not covered | Where it stands |
 | ----------- | --------------- |
-| `kg eject --self-manage` | Moves Cluster API into the cluster so it manages itself. `clusterctl` carries objects but not their status, and kgenesis does not rebuild status on the next reconcile yet, so a moved provider re-claims hosts it has already provisioned. It is refused on a cluster too small to survive managing itself, and should not be pointed at one you care about. |
-| Upgrades | Nothing here has rolled a cluster to a new Kubernetes version. `KubeadmControlPlane` replaces machines one at a time, so it would need a host free to move onto. |
+| Upgrades | Nothing here has rolled a cluster to a new Kubernetes version. `KubeadmControlPlane` replaces machines one at a time, and kgenesis does not manage the kubeadm and kubelet on a host, so the new version has to be on the machines before the rollout reaches them. |
 | Preparing the hosts | kgenesis bootstraps machines that already have a container runtime, kubeadm, kubelet and kubectl. `kg inventory check` reports what is missing; putting it there is someone else's job. |
 
 ## Why this shape
