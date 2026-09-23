@@ -168,6 +168,20 @@ EOF
   } > "${path}"
 }
 
+# cluster_cp_hosts is how many control plane hosts a cluster may draw on.
+#
+# With a VIP that is all of them: whichever ones it takes, they elect the address
+# every node joins through. Without one the endpoint is a particular machine, so
+# a cluster given a host it might use instead would put its control plane
+# somewhere nothing is listening for it.
+cluster_cp_hosts() {
+  if driver_supports vip; then
+    echo "${CONTROL_PLANE_HOSTS}"
+  else
+    echo "${CONTROL_PLANE_REPLICAS}"
+  fi
+}
+
 kgc() { local cfg="$1"; shift; "${KG}" "$@" -c "${cfg}" --state-dir "${STATE}"; }
 kg() { kgc "${CONFIG}" "$@"; }
 

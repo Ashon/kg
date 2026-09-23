@@ -163,7 +163,7 @@ write_cni "${WORKDIR}/kindnet.yaml" "${LAB_ENDPOINT}:6443"
 # Every host the fleet has, and fewer replicas than that: a pool with nothing
 # spare in it is one a rollout cannot move onto and a handover is refused for.
 write_config "${CONFIG}" lab "${LAB_ENDPOINT}" "${WORKDIR}/kindnet.yaml" \
-  1 "${CONTROL_PLANE_HOSTS}" 1 "${WORKER_HOSTS}" \
+  1 "$(cluster_cp_hosts)" 1 "${WORKER_HOSTS}" \
   "${CONTROL_PLANE_REPLICAS}" "${WORKER_REPLICAS}"
 "${KG}" config validate -c "${CONFIG}"
 
