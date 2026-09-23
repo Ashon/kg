@@ -32,6 +32,7 @@ safe to rely on.
 | Hand the cluster over and walk away | `kg eject` | `release` | containers, machines |
 | Run several clusters from one genesis node | a configuration each, `kg clusters` | `multi-cluster` | containers, machines |
 | Leave the cluster managing itself | `kg eject --self-manage` | `self-manage` | machines |
+| Roll a self-managed cluster to a newer Kubernetes | `kubectl patch` its `spec.version` | `upgrade` | machines |
 
 **containers** is every push: host containers on one docker bridge, which is
 enough for everything except an election over ARP. **machines** is nightly: KVM
@@ -43,8 +44,7 @@ What has no scenario behind it, and is not finished:
 
 | Not covered | Where it stands |
 | ----------- | --------------- |
-| Upgrades | Nothing here has rolled a cluster to a new Kubernetes version. `KubeadmControlPlane` replaces machines one at a time, and kgenesis does not manage the kubeadm and kubelet on a host, so the new version has to be on the machines before the rollout reaches them. |
-| Preparing the hosts | kgenesis bootstraps machines that already have a container runtime, kubeadm, kubelet and kubectl. `kg inventory check` reports what is missing; putting it there is someone else's job. |
+| Preparing the hosts | kgenesis bootstraps machines that already have a container runtime, kubeadm, kubelet and kubectl. `kg inventory check` reports what is missing; putting it there is someone else's job, and so is replacing it for an upgrade. |
 
 ## Why this shape
 

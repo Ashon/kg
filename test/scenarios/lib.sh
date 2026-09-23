@@ -10,6 +10,9 @@
 # Sourced by run.sh, after the driver and before the cases.
 
 K8S_MINOR="${K8S_MINOR:-1.33}"
+# The minor the upgrade case rolls to. It is a fleet-wide setting because the
+# machines have to carry it before the rollout reaches them.
+K8S_UPGRADE_TO="${K8S_UPGRADE_TO:-}"
 
 # How many machines of each role exist, and how many of them the lab cluster
 # asks for. They are not the same number: a scenario needs a host free to scale
@@ -292,4 +295,18 @@ free_hosts_by_role() {
   KUBECONFIG="${STATE}/bootstrap.kubeconfig" kubectl get hosts -A \
     -o jsonpath='{range .items[*]}{.metadata.labels.kgenesis\.io/role} {.metadata.labels.kgenesis\.io/claimed-by}{"\n"}{end}' 2>/dev/null |
     awk '$2 == "" { print $1 }' | sort | uniq -c | awk '{print $2, $1}' | sort
+}
+
+# nodes_all_at_version fails unless every node reports the version given, which
+# is what a rollout is for and the only way to tell one that finished from one
+# that stopped half way.
+nodes_all_at_version() {
+  local kubeconfig="$1" want="$2" versions
+  versions="$(KUBECONFIG="${kubeconfig}" kubectl get nodes \
+    -o jsonpath='{range .items[*]}{.metadata.name} {.status.nodeInfo.kubeletVersion}{"\n"}{end}' 2>/dev/null)"
+  local wrong
+  wrong="$(echo "${versions}" | awk -v want="${want}" 'NF == 2 && $2 != want')"
+  [[ -z "${wrong}" ]] ||
+    fail "not every node is on ${want}:
+$(echo "${wrong}" | sed 's/^/      /')"
 }

@@ -47,6 +47,11 @@ WORKER_VCPUS="${WORKER_VCPUS:-1}"
 IMAGE_DIR="${IMAGE_DIR:-/mnt/kgenesis-images}"
 BASE_IMAGE_URL="${BASE_IMAGE_URL:-https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img}"
 
+# A minor below the one the upgrade case rolls to, because the machines have to
+# start somewhere it can move away from.
+K8S_MINOR="${K8S_MINOR:-1.32}"
+K8S_UPGRADE_TO="${K8S_UPGRADE_TO:-1.33}"
+
 driver_name() { echo libvirt; }
 
 driver_capabilities() { echo "vip reboot"; }

@@ -142,3 +142,25 @@ this is the path that says whether the claim survives being moved. It needs a
 host free of each role, which is what `--self-manage` is refused without, so the
 `lima` and `libvirt` fleets carry one more control plane than the cluster asks
 for.
+
+### 9. `upgrade` - the cluster rolls itself to a newer Kubernetes
+
+The cluster `self-manage` left behind, moved from one Kubernetes minor to the
+next from inside itself.
+
+kgenesis does not manage the kubeadm and kubelet on a host: it bootstraps
+machines that are already provisioned, so the host decides which Kubernetes it
+can build. `KubeadmControlPlane` upgrades by replacing machines, which means the
+new version has to be on the machines before the rollout reaches them. Putting it
+there is what re-imaging a host does in a real fleet, and what this case does
+with apt.
+
+Asserts: every node starts on the version the cluster was built at; the machines
+carry the new kubeadm afterwards; patching `spec.version` on the control plane
+and the worker pool - with `kubectl`, because there is no genesis node any more -
+rolls every machine; every node ends on the new version, still on its own
+address, still answering behind the VIP.
+
+The `libvirt` fleet is provisioned a minor below what this rolls to, so the
+earlier cases run on the older one. The rollout needs a host free of each role
+to move onto, which is the same thing `--self-manage` is refused without.

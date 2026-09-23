@@ -79,7 +79,8 @@ jobs:
       - name: Run the scenarios
         env:
           DRIVER: libvirt
-          K8S_MINOR: "1.33"
+          # The fleet starts a minor below what the upgrade case rolls it to;
+          # the driver picks both, so they stay together.
           TIMEOUT: 40m
         # sg runs the step with the new group membership, which the shell this
         # step starts in does not have yet.
