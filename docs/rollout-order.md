@@ -5,6 +5,8 @@ SPDX-License-Identifier: MIT
 
 # Rollout order
 
+[Documentation](README.md) · [Cluster management](cluster-management.md)
+
 A machine is never upgraded in place. Cluster API replaces it: a new machine is
 created, it joins, and the old one is removed. An upgrade is a sequence of those
 replacements, so the only questions it raises are which machine goes next and

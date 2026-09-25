@@ -58,6 +58,10 @@ for platform in ${PLATFORMS}; do
     -o "${stage}/kg" ./cmd/kg
 
   cp "${ROOT}/LICENSE" "${ROOT}/README.md" "${stage}/"
+  # README links to the manuals; include them so release archives work offline.
+  cp -R "${ROOT}/docs" "${stage}/docs"
+  mkdir -p "${stage}/test/scenarios"
+  cp "${ROOT}/test/scenarios/SCENARIOS.md" "${stage}/test/scenarios/"
 
   tar -czf "${DIST}/$(basename "${stage}").tar.gz" -C "${DIST}/stage" "$(basename "${stage}")"
   info "$(basename "${stage}").tar.gz"

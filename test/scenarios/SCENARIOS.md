@@ -5,6 +5,8 @@ SPDX-License-Identifier: MIT
 
 # Scenarios
 
+[Documentation](../../docs/README.md) · [Development and testing](../../docs/development.md)
+
 Each scenario is one path an operator actually takes, and each asserts what that
 path is supposed to leave behind. They share one fleet of machines and run in
 order, because every one of them depends on the state the previous one ends in.
