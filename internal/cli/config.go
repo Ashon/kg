@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Ashon/kgenesis/internal/config"
+	"github.com/Ashon/kg/internal/config"
 )
 
 func newConfigCommand(opts *Options) *cobra.Command {

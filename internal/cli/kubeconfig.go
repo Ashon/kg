@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Ashon/kgenesis/internal/capi"
+	"github.com/Ashon/kg/internal/capi"
 )
 
 func newKubeconfigCommand(opts *Options) *cobra.Command {

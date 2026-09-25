@@ -13,8 +13,8 @@ import (
 
 	cryptossh "golang.org/x/crypto/ssh"
 
-	"github.com/Ashon/kgenesis/internal/ssh"
-	"github.com/Ashon/kgenesis/internal/ssh/sshtest"
+	"github.com/Ashon/kg/internal/ssh"
+	"github.com/Ashon/kg/internal/ssh/sshtest"
 )
 
 func TestDialAndRun(t *testing.T) {

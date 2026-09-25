@@ -6,7 +6,7 @@
 // hosts over SSH, and then hands management to that cluster.
 package main
 
-import "github.com/Ashon/kgenesis/internal/cli"
+import "github.com/Ashon/kg/internal/cli"
 
 func main() {
 	cli.Execute()

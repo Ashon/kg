@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/Ashon/kgenesis/internal/capi"
-	"github.com/Ashon/kgenesis/internal/config"
+	"github.com/Ashon/kg/internal/capi"
+	"github.com/Ashon/kg/internal/config"
 )
 
 // Options are the flags shared by every subcommand.

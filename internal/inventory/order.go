@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
 )
 
 // SortHosts puts hosts into the order they are listed and claimed in.

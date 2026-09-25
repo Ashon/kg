@@ -62,7 +62,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' }}
-          tags: ghcr.io/ashon/kgenesis:${{ steps.version.outputs.version }}
+          tags: ghcr.io/ashon/kg:${{ steps.version.outputs.version }}
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
             GIT_COMMIT=${{ github.sha }}
@@ -91,10 +91,10 @@ jobs:
             printf '```console\n'
             printf 'os=$(uname -s | tr A-Z a-z)\n'
             printf 'arch=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)\n'
-            printf 'tar -xzf kgenesis_%s_${os}_${arch}.tar.gz\n' "${{ steps.version.outputs.version }}"
-            printf 'sudo install kgenesis_*/kg /usr/local/bin/kg\n'
+            printf 'tar -xzf kg_%s_${os}_${arch}.tar.gz\n' "${{ steps.version.outputs.version }}"
+            printf 'sudo install kg_*/kg /usr/local/bin/kg\n'
             printf '```\n\n'
-            printf 'The controller image is `ghcr.io/ashon/kgenesis:%s`, which is what `kg init`\n' \
+            printf 'The controller image is `ghcr.io/ashon/kg:%s`, which is what `kg init`\n' \
               "${{ steps.version.outputs.version }}"
             printf 'installs. `kg version` reports it, which is the first thing to check when the\n'
             printf 'controller will not start.\n\n'

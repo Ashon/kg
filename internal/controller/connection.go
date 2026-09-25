@@ -13,8 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
-	"github.com/Ashon/kgenesis/internal/ssh"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
+	"github.com/Ashon/kg/internal/ssh"
 )
 
 // Secret keys recognised in a Host's sshSecretRef.

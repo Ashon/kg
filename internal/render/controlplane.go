@@ -11,7 +11,7 @@ import (
 	controlplanev1 "sigs.k8s.io/cluster-api/api/controlplane/kubeadm/v1beta2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 
-	"github.com/Ashon/kgenesis/internal/config"
+	"github.com/Ashon/kg/internal/config"
 )
 
 // DefaultKubeVIPVersion is used when cluster.virtualIP.version is unset. It is

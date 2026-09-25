@@ -19,7 +19,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	kgssh "github.com/Ashon/kgenesis/internal/ssh"
+	kgssh "github.com/Ashon/kg/internal/ssh"
 )
 
 // Handler runs one remote command. stdin carries whatever the client streamed.

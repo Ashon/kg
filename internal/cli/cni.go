@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/Ashon/kgenesis/internal/config"
-	"github.com/Ashon/kgenesis/internal/kube"
+	"github.com/Ashon/kg/internal/config"
+	"github.com/Ashon/kg/internal/kube"
 )
 
 // manifestFetchTimeout bounds a single remote manifest download.

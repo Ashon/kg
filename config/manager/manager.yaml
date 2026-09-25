@@ -93,7 +93,7 @@ spec:
         key: node-role.kubernetes.io/control-plane
       containers:
       - name: manager
-        image: ghcr.io/ashon/kgenesis:dev
+        image: ghcr.io/ashon/kg:dev
         imagePullPolicy: IfNotPresent
         args:
         - --leader-elect

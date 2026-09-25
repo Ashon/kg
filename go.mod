@@ -1,4 +1,4 @@
-module github.com/Ashon/kgenesis
+module github.com/Ashon/kg
 
 go 1.27.1
 

@@ -20,11 +20,11 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
-	"github.com/Ashon/kgenesis/internal/config"
-	"github.com/Ashon/kgenesis/internal/kube"
-	"github.com/Ashon/kgenesis/internal/provisioner"
-	"github.com/Ashon/kgenesis/internal/render"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
+	"github.com/Ashon/kg/internal/config"
+	"github.com/Ashon/kg/internal/kube"
+	"github.com/Ashon/kg/internal/provisioner"
+	"github.com/Ashon/kg/internal/render"
 )
 
 func newClusterCommand(opts *Options) *cobra.Command {

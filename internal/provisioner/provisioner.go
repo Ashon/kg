@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Ashon/kgenesis/internal/ssh"
+	"github.com/Ashon/kg/internal/ssh"
 )
 
 // Host paths. State lives under /var/lib so it survives a reboot: /run is tmpfs,

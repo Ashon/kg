@@ -22,9 +22,9 @@ ARG BUILD_DATE=""
 
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath \
     -ldflags "-s -w \
-      -X github.com/Ashon/kgenesis/internal/version.Version=${VERSION} \
-      -X github.com/Ashon/kgenesis/internal/version.GitCommit=${GIT_COMMIT} \
-      -X github.com/Ashon/kgenesis/internal/version.BuildDate=${BUILD_DATE}" \
+      -X github.com/Ashon/kg/internal/version.Version=${VERSION} \
+      -X github.com/Ashon/kg/internal/version.GitCommit=${GIT_COMMIT} \
+      -X github.com/Ashon/kg/internal/version.BuildDate=${BUILD_DATE}" \
     -o manager ./cmd/manager
 
 # distroless: the manager only needs to open TCP connections and talk SSH, so

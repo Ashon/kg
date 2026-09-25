@@ -1,9 +1,9 @@
 # kgenesis
 
-[![CI](https://github.com/Ashon/kgenesis/actions/workflows/ci.yml/badge.svg)](https://github.com/Ashon/kgenesis/actions/workflows/ci.yml)
-[![Scenarios](https://github.com/Ashon/kgenesis/actions/workflows/scenarios.yml/badge.svg)](https://github.com/Ashon/kgenesis/actions/workflows/scenarios.yml)
-[![Scenarios on machines](https://github.com/Ashon/kgenesis/actions/workflows/scenarios-machines.yml/badge.svg)](https://github.com/Ashon/kgenesis/actions/workflows/scenarios-machines.yml)
-[![Latest release](https://img.shields.io/github/v/release/Ashon/kgenesis?include_prereleases&sort=semver)](https://github.com/Ashon/kgenesis/releases)
+[![CI](https://github.com/Ashon/kg/actions/workflows/ci.yml/badge.svg)](https://github.com/Ashon/kg/actions/workflows/ci.yml)
+[![Scenarios](https://github.com/Ashon/kg/actions/workflows/scenarios.yml/badge.svg)](https://github.com/Ashon/kg/actions/workflows/scenarios.yml)
+[![Scenarios on machines](https://github.com/Ashon/kg/actions/workflows/scenarios-machines.yml/badge.svg)](https://github.com/Ashon/kg/actions/workflows/scenarios-machines.yml)
+[![Latest release](https://img.shields.io/github/v/release/Ashon/kg?include_prereleases&sort=semver)](https://github.com/Ashon/kg/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 Turn a pool of pre-provisioned physical or virtual hosts into a Kubernetes
@@ -443,7 +443,7 @@ install, which is the first thing to check when the controller will not start.
 ```console
 $ kg version
 kgenesis v0.1.0 (commit 1a2b3c4, darwin/arm64, go1.27.1), built 2026-09-23T05:00:00Z
-controller image ghcr.io/ashon/kgenesis:v0.1.0
+controller image ghcr.io/ashon/kg:v0.1.0
 ```
 
 A release publishes a CLI archive per platform, `provider-components.yaml` for

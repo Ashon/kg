@@ -10,15 +10,15 @@ VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo d
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-IMAGE      ?= ghcr.io/ashon/kgenesis
+IMAGE      ?= ghcr.io/ashon/kg
 IMAGE_TAG  ?= dev
 MANAGER_IMAGE := $(IMAGE):$(IMAGE_TAG)
 
 LDFLAGS := -s -w \
-  -X github.com/Ashon/kgenesis/internal/version.Version=$(VERSION) \
-  -X github.com/Ashon/kgenesis/internal/version.GitCommit=$(GIT_COMMIT) \
-  -X github.com/Ashon/kgenesis/internal/version.BuildDate=$(BUILD_DATE) \
-  -X github.com/Ashon/kgenesis/internal/version.Image=$(MANAGER_IMAGE)
+  -X github.com/Ashon/kg/internal/version.Version=$(VERSION) \
+  -X github.com/Ashon/kg/internal/version.GitCommit=$(GIT_COMMIT) \
+  -X github.com/Ashon/kg/internal/version.BuildDate=$(BUILD_DATE) \
+  -X github.com/Ashon/kg/internal/version.Image=$(MANAGER_IMAGE)
 
 BIN := bin
 

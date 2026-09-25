@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Ashon/kgenesis/internal/bootstrap"
+	"github.com/Ashon/kg/internal/bootstrap"
 )
 
 func newResetCommand(opts *Options) *cobra.Command {

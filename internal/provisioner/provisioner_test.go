@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Ashon/kgenesis/internal/ssh"
-	"github.com/Ashon/kgenesis/internal/ssh/sshtest"
+	"github.com/Ashon/kg/internal/ssh"
+	"github.com/Ashon/kg/internal/ssh/sshtest"
 )
 
 // fakeHost models the files the provisioner reads and writes on a host, so the

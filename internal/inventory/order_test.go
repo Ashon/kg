@@ -8,7 +8,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
 )
 
 // A fleet numbers its machines, and past the ninth a plain string order stops

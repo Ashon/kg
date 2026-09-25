@@ -22,7 +22,7 @@ var (
 	// manifest, because the two have to agree: a released CLI that installed
 	// the manifest's default would send kubelet after a tag that was never
 	// published, and the only symptom would be ImagePullBackOff.
-	Image = "ghcr.io/ashon/kgenesis:dev"
+	Image = "ghcr.io/ashon/kg:dev"
 )
 
 // String is a one line summary suitable for `--version`. The name is the

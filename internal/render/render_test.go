@@ -16,9 +16,9 @@ import (
 	cabpkcloudinit "sigs.k8s.io/cluster-api/bootstrap/kubeadm/pkg/cloudinit"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
-	"github.com/Ashon/kgenesis/internal/cloudinit"
-	"github.com/Ashon/kgenesis/internal/config"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
+	"github.com/Ashon/kg/internal/cloudinit"
+	"github.com/Ashon/kg/internal/config"
 )
 
 func testConfig(t *testing.T) *config.Config {

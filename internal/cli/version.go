@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Ashon/kgenesis/internal/version"
+	"github.com/Ashon/kg/internal/version"
 )
 
 func newVersionCommand() *cobra.Command {

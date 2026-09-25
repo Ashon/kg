@@ -19,7 +19,7 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
 )
 
 // FieldManager identifies kgenesis in server-side apply, so an operator editing

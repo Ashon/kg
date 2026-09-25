@@ -20,7 +20,7 @@ VERSION="${1:-${VERSION:-}}"
   exit 2
 }
 
-IMAGE="${IMAGE:-ghcr.io/ashon/kgenesis}"
+IMAGE="${IMAGE:-ghcr.io/ashon/kg}"
 readonly MANAGER_IMAGE="${IMAGE}:${VERSION}"
 readonly DIST="${ROOT}/dist"
 
@@ -45,16 +45,16 @@ info "controller image ${MANAGER_IMAGE}"
 for platform in ${PLATFORMS}; do
   goos="${platform%%/*}"
   goarch="${platform##*/}"
-  stage="${DIST}/stage/kgenesis_${VERSION}_${goos}_${goarch}"
+  stage="${DIST}/stage/kg_${VERSION}_${goos}_${goarch}"
   mkdir -p "${stage}"
 
   CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" go build \
     -C "${ROOT}" -trimpath \
     -ldflags "-s -w \
-      -X github.com/Ashon/kgenesis/internal/version.Version=${VERSION} \
-      -X github.com/Ashon/kgenesis/internal/version.GitCommit=${GIT_COMMIT} \
-      -X github.com/Ashon/kgenesis/internal/version.BuildDate=${BUILD_DATE} \
-      -X github.com/Ashon/kgenesis/internal/version.Image=${MANAGER_IMAGE}" \
+      -X github.com/Ashon/kg/internal/version.Version=${VERSION} \
+      -X github.com/Ashon/kg/internal/version.GitCommit=${GIT_COMMIT} \
+      -X github.com/Ashon/kg/internal/version.BuildDate=${BUILD_DATE} \
+      -X github.com/Ashon/kg/internal/version.Image=${MANAGER_IMAGE}" \
     -o "${stage}/kg" ./cmd/kg
 
   cp "${ROOT}/LICENSE" "${ROOT}/README.md" "${stage}/"

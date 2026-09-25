@@ -27,11 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
-	"github.com/Ashon/kgenesis/internal/cloudinit"
-	"github.com/Ashon/kgenesis/internal/inventory"
-	"github.com/Ashon/kgenesis/internal/provisioner"
-	"github.com/Ashon/kgenesis/internal/ssh"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
+	"github.com/Ashon/kg/internal/cloudinit"
+	"github.com/Ashon/kg/internal/inventory"
+	"github.com/Ashon/kg/internal/provisioner"
+	"github.com/Ashon/kg/internal/ssh"
 )
 
 // Requeue intervals. Bootstrapping is slow and mostly spent waiting on image

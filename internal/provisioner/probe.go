@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Ashon/kgenesis/internal/ssh"
+	"github.com/Ashon/kg/internal/ssh"
 )
 
 // SystemInfo is what a probe learns about a host.

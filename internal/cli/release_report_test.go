@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
 )
 
 func releasedHost(name, address string, reset metav1.ConditionStatus, reason, message string) *infrav1.Host {

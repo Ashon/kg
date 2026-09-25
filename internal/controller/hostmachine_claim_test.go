@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
 )
 
 func testScheme(t *testing.T) *runtime.Scheme {

@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/Ashon/kgenesis/internal/ssh"
+	"github.com/Ashon/kg/internal/ssh"
 )
 
 // macOS reports a local network denial as EHOSTUNREACH, which is what a genuine

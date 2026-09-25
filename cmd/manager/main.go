@@ -22,9 +22,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
-	kgcontroller "github.com/Ashon/kgenesis/internal/controller"
-	"github.com/Ashon/kgenesis/internal/version"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
+	kgcontroller "github.com/Ashon/kg/internal/controller"
+	"github.com/Ashon/kg/internal/version"
 )
 
 // managerName is what this binary calls itself in a version line. The CLI is

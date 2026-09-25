@@ -13,13 +13,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	infrav1 "github.com/Ashon/kgenesis/api/v1alpha1"
-	"github.com/Ashon/kgenesis/internal/assets"
-	"github.com/Ashon/kgenesis/internal/bootstrap"
-	"github.com/Ashon/kgenesis/internal/capi"
-	"github.com/Ashon/kgenesis/internal/config"
-	"github.com/Ashon/kgenesis/internal/kube"
-	"github.com/Ashon/kgenesis/internal/render"
+	infrav1 "github.com/Ashon/kg/api/v1alpha1"
+	"github.com/Ashon/kg/internal/assets"
+	"github.com/Ashon/kg/internal/bootstrap"
+	"github.com/Ashon/kg/internal/capi"
+	"github.com/Ashon/kg/internal/config"
+	"github.com/Ashon/kg/internal/kube"
+	"github.com/Ashon/kg/internal/render"
 )
 
 // Names inside the embedded provider manifest.
