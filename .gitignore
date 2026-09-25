@@ -7,3 +7,6 @@ dist/
 # Local genesis node state
 .kgenesis/
 *.kubeconfig
+
+# Local end-to-end reports (no credentials)
+.artifacts/

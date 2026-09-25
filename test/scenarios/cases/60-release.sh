@@ -35,5 +35,11 @@ scenario_release() {
   echo "${out}" | sed 's/^/    /'
   echo "${out}" | grep -qi 'invalid configuration' &&
     fail "kg clusters reported a parse failure rather than the plain fact"
-  info "kg clusters says what happened"
+  echo "${out}" | grep -qE '^lab[[:space:]]+lab[[:space:]]+released' ||
+    fail "kg forgot the released cluster"
+  assert_management_mode lab/lab released
+  assert_registered_status lab/lab released
+  assert_registered_kubeconfig lab/lab
+  assert_genesis_mutations_refused "${CONFIG}" lab/lab released
+  info "kg remembers the release and can still query the cluster"
 }

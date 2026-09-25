@@ -220,7 +220,11 @@ func newInventoryListCommand(opts *Options) *cobra.Command {
 				return err
 			}
 
-			if !opts.bootstrapClusterExists() {
+			management, err := opts.managementPath(cfg)
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(management); os.IsNotExist(err) && management == opts.BootstrapKubeconfig() {
 				fmt.Fprintf(cmd.OutOrStdout(),
 					"The pool is not loaded yet; %s puts it in the bootstrap cluster.\n\n"+
 						"To check the hosts themselves right now, without one:\n\n  %s\n",
@@ -228,7 +232,7 @@ func newInventoryListCommand(opts *Options) *cobra.Command {
 				return nil
 			}
 
-			c, err := kube.NewClient(opts.BootstrapKubeconfig())
+			c, err := kube.NewClient(management)
 			if err != nil {
 				return fmt.Errorf("%w\n\nRun `%s` first", err, invoke("init"))
 			}
@@ -311,7 +315,11 @@ account for is a host to go and look at, not one to trust.`,
 				return err
 			}
 
-			c, err := kube.NewClient(opts.BootstrapKubeconfig())
+			management, err := opts.managementPath(cfg)
+			if err != nil {
+				return err
+			}
+			c, err := kube.NewClient(management)
 			if err != nil {
 				return fmt.Errorf("%w\n\nRun `%s` first", err, invoke("init"))
 			}

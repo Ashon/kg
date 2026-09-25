@@ -20,6 +20,13 @@
 # The segment socket_vmnet serves. vmnet's DHCP does not answer on every macOS
 # host and the switch works regardless, so addresses are assigned rather than
 # leased. The VIPs sit well above the hosts.
+CONTROL_PLANE_HOSTS="${CONTROL_PLANE_HOSTS:-4}"
+CONTROL_PLANE_REPLICAS="${CONTROL_PLANE_REPLICAS:-3}"
+WORKER_HOSTS="${WORKER_HOSTS:-2}"
+WORKER_REPLICAS="${WORKER_REPLICAS:-1}"
+K8S_MINOR="${K8S_MINOR:-1.32}"
+K8S_UPGRADE_TO="${K8S_UPGRADE_TO:-1.33}"
+
 readonly SUBNET="192.168.105"
 readonly NETWORK_IFACE="lima0"
 
@@ -75,7 +82,8 @@ lima_exists() {
 }
 
 driver_provision() {
-  local existing host
+  local existing host pid failed=0
+  local pids=()
   existing="$(limactl list --format '{{.Name}}' 2>/dev/null)"
 
   if [[ "${REUSE}" == "1" ]]; then
@@ -94,19 +102,24 @@ driver_provision() {
 
     # Started in parallel: each one spends most of its time in apt.
     for host in $(host_names); do
-      limactl start "${host}" >/dev/null 2>&1 &
+      limactl start "${host}" >"${REPORT_DIR}/start-${host}.log" 2>&1 &
+      pids+=("$!")
     done
-    wait
+    for pid in "${pids[@]}"; do wait "${pid}" || failed=1; done
+    ((failed == 0)) || fail "a VM failed to start; see ${REPORT_DIR}/start-*.log"
+    pids=()
 
     log "Provisioning the hosts"
     for host in $(host_names); do
       (
         limactl shell "${host}" -- sudo bash -s -- \
           "$(driver_host_ip "${host}")" "${NETWORK_IFACE}" "${K8S_MINOR}" "${PUBKEY}" \
-          < "${ROOT}/test/scenarios/provision-host.sh" 2>&1 | tail -1 | sed 's/^/    /'
+          < "${ROOT}/test/scenarios/provision-host.sh" >"${REPORT_DIR}/provision-${host}.log" 2>&1
       ) &
+      pids+=("$!")
     done
-    wait
+    for pid in "${pids[@]}"; do wait "${pid}" || failed=1; done
+    ((failed == 0)) || fail "host provisioning failed; see ${REPORT_DIR}/provision-*.log"
     return
   fi
 

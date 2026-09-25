@@ -4,85 +4,147 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"sort"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 	clusterv1 "sigs.k8s.io/cluster-api/api/core/v1beta2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	infrav1 "github.com/Ashon/kg/api/v1alpha1"
+	"github.com/Ashon/kg/internal/config"
 	"github.com/Ashon/kg/internal/kube"
+	"github.com/Ashon/kg/internal/registry"
 )
 
-// newClustersCommand lists what the genesis node is managing. A genesis node
-// builds several clusters and lets them go one at a time, so "what is still
-// here" is a question worth being able to ask without a kubeconfig in hand.
-func newClustersCommand(opts *Options) *cobra.Command {
-	return &cobra.Command{
-		Use:     "clusters",
-		Aliases: []string{"ls"},
-		Short:   "List the clusters this genesis node manages",
-		Long: `Lists every cluster the genesis node is managing, across namespaces.
+type clusterRow struct {
+	record registry.Record
+	phase  string
+	hosts  string
+}
 
-Each cluster lives in its own namespace, which is what lets one be ejected
-without disturbing the others.`,
+func newClustersCommand(opts *Options) *cobra.Command {
+	var offline bool
+	cmd := &cobra.Command{
+		Use: "clusters", Aliases: []string{"ls"},
+		Short: "List known clusters and their management mode",
+		Long: `Lists registered clusters, including those released or managing themselves.
+
+The management mode is the last confirmed arrangement, not a health check.
+When the genesis node is reachable, its clusters are also discovered and their
+current phases shown. A dash means the phase or host count was not checked.
+Use cluster status --cluster namespace/name for a live check of any entry.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !opts.bootstrapClusterExists() {
-				fmt.Fprintf(cmd.OutOrStdout(),
-					"This genesis node has not been brought up yet.\n\n  %s\n", invoke("init"))
-				return nil
-			}
-
-			c, err := kube.NewClient(opts.BootstrapKubeconfig())
+			records, err := opts.registry().List()
 			if err != nil {
-				return fmt.Errorf("%w\n\nRun `%s` first", err, invoke("init"))
+				return err
 			}
-
-			clusters := &clusterv1.ClusterList{}
-			if err := c.List(cmd.Context(), clusters); err != nil {
-				return fmt.Errorf("list clusters: %w", err)
+			rows := map[string]clusterRow{}
+			for _, r := range records {
+				rows[registry.Key(r.Namespace, r.Name)] = clusterRow{r, "-", "-"}
 			}
-
-			if len(clusters.Items) == 0 {
-				fmt.Fprintf(cmd.OutOrStdout(),
-					"The genesis node is up but manages nothing yet.\n\n  %s\n",
-					invoke("cluster create"))
+			if !offline && opts.bootstrapClusterExists() {
+				ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
+				defer cancel()
+				c, err := kube.NewClient(opts.BootstrapKubeconfig())
+				if err == nil {
+					err = discoverClusters(ctx, c, opts, rows)
+				}
+				if err != nil {
+					if len(rows) == 0 {
+						return err
+					}
+					fmt.Fprintf(cmd.ErrOrStderr(), "Could not refresh genesis state; showing registered clusters: %v\n", err)
+				}
+			}
+			if len(rows) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "No clusters are registered.")
 				return nil
 			}
-
-			hosts := &infrav1.HostList{}
-			if err := c.List(cmd.Context(), hosts); err != nil {
-				return fmt.Errorf("list hosts: %w", err)
-			}
-
-			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "CLUSTER\tNAMESPACE\tPHASE\tENDPOINT\tHOSTS")
-			for _, cluster := range clusters.Items {
-				var claimed, total int
-				for _, host := range hosts.Items {
-					if host.Namespace != cluster.Namespace {
-						continue
-					}
-					total++
-					if host.Status.ClaimRef != nil {
-						claimed++
-					}
-				}
-				// A released cluster is left paused rather than deleted, so its
-				// hosts stay claimed and no controller touches it. Its phase is
-				// whatever it was at that moment and says nothing useful.
-				phase := string(cluster.Status.Phase)
-				if cluster.Spec.Paused != nil && *cluster.Spec.Paused {
-					phase = "Released"
-				}
-
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s:%d\t%d/%d\n",
-					cluster.Name, cluster.Namespace, phase,
-					cluster.Spec.ControlPlaneEndpoint.Host, cluster.Spec.ControlPlaneEndpoint.Port,
-					claimed, total)
-			}
-			return w.Flush()
+			return printClusterRows(cmd.OutOrStdout(), rows)
 		},
 	}
+	cmd.Flags().BoolVar(&offline, "offline", false, "Read the registry without contacting a cluster")
+	return cmd
+}
+
+// Discover only adds unknown identities. A paused Cluster may be paused for
+// maintenance or a move, so it cannot establish that kg released it.
+func discoverClusters(ctx context.Context, c client.Client, opts *Options, rows map[string]clusterRow) error {
+	clusters := &clusterv1.ClusterList{}
+	if err := c.List(ctx, clusters); err != nil {
+		return fmt.Errorf("list genesis clusters: %w", err)
+	}
+	hosts := &infrav1.HostList{}
+	if err := c.List(ctx, hosts); err != nil {
+		return fmt.Errorf("list genesis hosts: %w", err)
+	}
+	for _, cluster := range clusters.Items {
+		key := registry.Key(cluster.Namespace, cluster.Name)
+		row, exists := rows[key]
+		if !exists {
+			cfg := &config.Config{Cluster: config.ClusterConfig{
+				Name: cluster.Name, Namespace: cluster.Namespace,
+				ControlPlaneEndpoint: config.Endpoint{Host: cluster.Spec.ControlPlaneEndpoint.Host, Port: cluster.Spec.ControlPlaneEndpoint.Port},
+			}}
+			r, err := opts.recordFor(cfg, registry.Managed)
+			if err != nil {
+				return err
+			}
+			if err := opts.registry().Put(*r); err != nil {
+				return err
+			}
+			row.record = *r
+		}
+		// A stale source object must not overwrite the target's management state.
+		if row.record.Mode == registry.SelfManaged {
+			continue
+		}
+		row.phase = string(cluster.Status.Phase)
+		if row.phase == "" {
+			row.phase = "-"
+		}
+		if cluster.Spec.Paused != nil && *cluster.Spec.Paused {
+			row.phase = "Paused"
+		}
+		claimed, total := 0, 0
+		for _, h := range hosts.Items {
+			if h.Namespace != cluster.Namespace {
+				continue
+			}
+			total++
+			if h.Status.ClaimRef != nil {
+				claimed++
+			}
+		}
+		row.hosts = fmt.Sprintf("%d/%d", claimed, total)
+		rows[key] = row
+	}
+	return nil
+}
+
+func printClusterRows(out io.Writer, rows map[string]clusterRow) error {
+	sorted := make([]clusterRow, 0, len(rows))
+	for _, row := range rows {
+		sorted = append(sorted, row)
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		a, b := sorted[i].record, sorted[j].record
+		if a.Namespace != b.Namespace {
+			return a.Namespace < b.Namespace
+		}
+		return a.Name < b.Name
+	})
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "CLUSTER\tNAMESPACE\tMANAGEMENT\tPHASE\tENDPOINT\tHOSTS")
+	for _, row := range sorted {
+		r := row.record
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", r.Name, r.Namespace, r.Mode, row.phase, r.Endpoint, row.hosts)
+	}
+	return w.Flush()
 }

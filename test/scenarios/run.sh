@@ -34,6 +34,32 @@ DRIVER="${DRIVER:-lima}"
 # first".
 WORKDIR="${KG_SCENARIO_WORKDIR:-$(mktemp -d)}"
 readonly WORKDIR
+REPORT_DIR="${KG_SCENARIO_REPORT_DIR:-${ROOT}/.artifacts/e2e/${DRIVER}-$(date +%Y%m%d-%H%M%S)}"
+mkdir -p "${REPORT_DIR}"
+REPORT_DIR="$(cd "${REPORT_DIR}" && pwd)"
+readonly REPORT_DIR
+exec > >(tee "${REPORT_DIR}/run.log") 2>&1
+: > "${REPORT_DIR}/results.tsv"
+active_scenario=setup
+scenario_started="$(date +%s)"
+report_result() {
+  printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "${REPORT_DIR}/results.tsv"
+}
+write_report() {
+  local name result seconds
+  {
+    printf '<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name="kg-%s">\n' "${DRIVER}"
+    while IFS=$'\t' read -r name result seconds; do
+      printf '  <testcase classname="kg.%s" name="%s" time="%s">' "${DRIVER}" "${name}" "${seconds}"
+      case "${result}" in
+        failed) printf '<failure message="Scenario failed; see run.log and diagnostics.log"/>' ;;
+        skipped) printf '<skipped message="Fleet lacks required capabilities"/>' ;;
+      esac
+      printf '</testcase>\n'
+    done < "${REPORT_DIR}/results.tsv"
+    printf '</testsuite>\n'
+  } > "${REPORT_DIR}/junit.xml"
+}
 mkdir -p "${WORKDIR}"
 readonly KEY="${WORKDIR}/id_ed25519"
 readonly CONFIG="${WORKDIR}/kg.yaml"
@@ -52,7 +78,7 @@ done
 
 # The order they run in. Each one depends on the state the one before it leaves,
 # which is why this is a list and not a directory listing.
-readonly ALL_SCENARIOS=(inventory build vip-failover scale rebuild release multi-cluster self-manage upgrade)
+readonly ALL_SCENARIOS=(inventory build management vip-failover scale rebuild release multi-cluster self-manage upgrade)
 
 selected=("$@")
 ((${#selected[@]} == 0)) && selected=("${ALL_SCENARIOS[@]}")
@@ -80,10 +106,10 @@ collect_diagnostics() {
 
   if [[ -f "${STATE}/bootstrap.kubeconfig" ]]; then
     KUBECONFIG="${STATE}/bootstrap.kubeconfig" \
-      kubectl get cluster,machines,hosts,hostmachines -A 2>&1 |
+      kubectl --request-timeout=15s get cluster,machines,hosts,hostmachines -A 2>&1 |
       head -40 | sed 's/^/    /' || true
     echo
-    KUBECONFIG="${STATE}/bootstrap.kubeconfig" kubectl -n kgenesis-system \
+    KUBECONFIG="${STATE}/bootstrap.kubeconfig" kubectl --request-timeout=15s -n kgenesis-system \
       logs deploy/kgenesis-controller-manager --tail=40 2>&1 | tail -40 | sed 's/^/    /' || true
   fi
 
@@ -93,7 +119,10 @@ collect_diagnostics() {
     [[ "${kubeconfig}" == *bootstrap.kubeconfig ]] && continue
     echo
     info "--- $(basename "${kubeconfig}" .kubeconfig)"
-    KUBECONFIG="${kubeconfig}" kubectl get nodes -o wide 2>&1 | sed 's/^/    /' || true
+    KUBECONFIG="${kubeconfig}" kubectl --request-timeout=15s get nodes -o wide 2>&1 | sed 's/^/    /' || true
+    KUBECONFIG="${kubeconfig}" kubectl --request-timeout=15s get clusters,machines,hosts,hostmachines,kubeadmcontrolplanes -A -o wide 2>&1 || true
+    KUBECONFIG="${kubeconfig}" kubectl --request-timeout=15s get pods -A -o wide 2>&1 || true
+    KUBECONFIG="${kubeconfig}" kubectl --request-timeout=15s -n kgenesis-system logs deploy/kgenesis-controller-manager --tail=80 2>&1 || true
   done
 
   driver_diagnostics || true
@@ -101,7 +130,13 @@ collect_diagnostics() {
 
 cleanup() {
   local status=$?
-  ((status != 0)) && collect_diagnostics || true
+  if ((status != 0)); then
+    report_result "${active_scenario}" failed "$(( $(date +%s) - scenario_started ))"
+    collect_diagnostics > "${REPORT_DIR}/diagnostics.log" 2>&1 || true
+    tail -60 "${REPORT_DIR}/diagnostics.log" || true
+  fi
+  write_report
+  info "report: ${REPORT_DIR}"
 
   if [[ "${KEEP}" == "1" || "${REUSE}" == "1" ]]; then
     log "Leaving the fleet running"
@@ -179,13 +214,16 @@ for name in "${selected[@]}"; do
   if [[ -n "${missing}" ]]; then
     skip "the ${DRIVER} fleet gives no ${missing}"
     skipped+=("${name}")
+    report_result "${name}" skipped 0
     continue
   fi
 
+  active_scenario="${name}"
   scenario_started="$(date +%s)"
   "scenario_${name//-/_}"
   info "scenario ${name} passed in $(( $(date +%s) - scenario_started ))s"
   ran+=("${name}")
+  report_result "${name}" passed "$(( $(date +%s) - scenario_started ))"
 done
 
 log "Scenarios passed"

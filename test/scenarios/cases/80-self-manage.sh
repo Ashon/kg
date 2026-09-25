@@ -91,4 +91,27 @@ scenario_self_manage() {
   kind get clusters 2>/dev/null | grep -q '^kgenesis-bootstrap$' &&
     fail "the genesis node survived a handover that left nothing for it to do"
   info "the genesis node is gone"
+
+  kg clusters --offline | grep -qE '^lab[[:space:]]+lab[[:space:]]+self-managed' ||
+    fail "kg did not retain the self-managed cluster"
+  assert_management_mode lab/lab self-managed
+  assert_registered_status lab/lab self-managed
+  assert_registered_kubeconfig lab/lab
+  assert_genesis_mutations_refused "${CONFIG}" lab/lab self-managed
+
+  # A later genesis node must not steal the self-managed cluster's queries.
+  printf 'unrelated invalid genesis kubeconfig\n' > "${STATE}/bootstrap.kubeconfig"
+  assert_registered_status lab/lab self-managed
+  assert_registered_kubeconfig lab/lab
+  rm "${STATE}/bootstrap.kubeconfig"
+  info "MGT-009: self-managed routing ignores an unrelated genesis file"
+
+  local host image_id
+  image_id="$(docker image inspect "${PROVIDER_IMAGE}" --format '{{.Id}}')"
+  for host in $(host_names); do
+    on_host "$(driver_host_ip "${host}")" "ctr -n k8s.io images ls -q" | grep -q "${PROVIDER_IMAGE}" ||
+      fail "MGT-010: ${host} cannot run the provider after a rollout"
+  done
+  info "MGT-010: all hosts, including spares, carry the provider image ${image_id}"
+  info "kg queries the self-managed cluster without a genesis node"
 }

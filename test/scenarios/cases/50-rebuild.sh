@@ -9,6 +9,11 @@
 scenario_rebuild() {
   log "Deleting the cluster"
   kg cluster delete --yes
+  local registry_after_delete
+  registry_after_delete="$(kg clusters --offline)"
+  echo "${registry_after_delete}" | grep -qE '^lab[[:space:]]+lab[[:space:]]' &&
+    fail "MGT-006: deleted cluster remains in the registry"
+  info "MGT-006: successful deletion removes the registry entry"
 
   log "Checking every host came back clean"
   local host

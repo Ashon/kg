@@ -81,6 +81,7 @@ wipe_hosts() {
         for link in cni0 flannel.1 kube-ipvs0; do ip link delete "$link" 2>/dev/null || true; done
         ip -o -4 addr show | grep -E "'"${vips}"'" | awk "{ print \$2, \$4 }" |
           while read -r iface addr; do ip addr del "$addr" dev "$iface" 2>/dev/null || true; done
+        rm -rf /var/lib/kubelet/pki
         rm -rf /etc/cni/net.d /var/lib/cni /etc/kubernetes /var/lib/etcd \
                /run/kubeadm /run/cluster-api /var/lib/kgenesis
       ' >/dev/null 2>&1 || true
@@ -95,6 +96,13 @@ wipe_hosts() {
   for host in $(host_names); do
     host_is_clean "${host}"
   done
+
+  # The fleet is now retired, so subsequent scenarios may reuse its identities.
+  local identity
+  while read -r identity; do
+    [[ -n "${identity}" ]] || continue
+    kg cluster forget --cluster "${identity}" --yes
+  done < <(kg clusters --offline | awk 'NR > 1 { print $2 "/" $1 }')
 }
 
 # ---------------------------------------------------------------------------
@@ -249,7 +257,7 @@ host_is_clean() {
   vips="$(driver_vip_addresses | paste -sd'|' -)"
   [[ -z "${vips}" ]] && vips="__no_vip_here__"
   leftovers="$(on_host "${ip}" '
-    for path in /etc/kubernetes/admin.conf /etc/kubernetes/kubelet.conf; do
+    for path in /etc/kubernetes/admin.conf /etc/kubernetes/kubelet.conf /var/lib/kubelet/pki; do
       [ -e "$path" ] && echo "$path"
     done
     [ -n "$(ls -A /var/lib/etcd 2>/dev/null)" ] && echo /var/lib/etcd
@@ -361,4 +369,46 @@ host_of_machine() {
   KUBECONFIG="${kubeconfig}" kubectl get hosts -A \
     -l "kgenesis.io/claimed-by=${infra}" \
     -o jsonpath='{.items[0].metadata.name}' 2>/dev/null
+}
+
+# Stable management acceptance checks; see the MGT matrix in SCENARIOS.md.
+assert_management_mode() {
+  local identity="$1" expected="$2" report
+  report="$("${KG}" --state-dir "${STATE}" --config "${WORKDIR}/no-config" clusters --offline)"
+  echo "${report}" | awk -v ns="${identity%/*}" -v name="${identity##*/}" -v mode="${expected}" \
+    '$1 == name && $2 == ns && $3 == mode { found=1 } END { exit !found }' ||
+    fail "MGT-001: ${identity} is not recorded as ${expected}: ${report}"
+  info "MGT-001: ${identity} retains ${expected} without its original config"
+}
+
+assert_registered_status() {
+  local identity="$1" expected="$2" output
+  output="$("${KG}" --state-dir "${STATE}" --config "${WORKDIR}/no-config" \
+    cluster status --cluster "${identity}" --watch --timeout 60s)"
+  echo "${output}" | grep -q "^Management: ${expected}$" ||
+    fail "MGT-002: status did not use ${expected}: ${output}"
+  echo "${output}" | grep -q 'ready' || fail "MGT-002: status returned no health information"
+  info "MGT-002: ${identity} status works through ${expected}"
+}
+
+assert_registered_kubeconfig() {
+  local identity="$1" path="${WORKDIR}/registered.kubeconfig"
+  "${KG}" --state-dir "${STATE}" --config "${WORKDIR}/no-config" \
+    kubeconfig --cluster "${identity}" --output "${path}" >/dev/null
+  KUBECONFIG="${path}" kubectl --request-timeout=30s get nodes >/dev/null
+  info "MGT-003: ${identity} exported kubeconfig reaches the workload API"
+}
+
+assert_genesis_mutations_refused() {
+  local cfg="$1" identity="$2" mode="$3" command output status
+  for command in init 'cluster create' 'cluster delete --yes' eject; do
+    status=0
+    # The words here are fixed commands, not user input.
+    output="$(kgc "${cfg}" ${command} 2>&1)" || status=$?
+    ((status != 0)) || fail "MGT-005: ${command} accepted a ${mode} cluster"
+    echo "${output}" | grep -q "is ${mode}" ||
+      fail "MGT-005: ${command} failed for the wrong reason: ${output}"
+  done
+  assert_management_mode "${identity}" "${mode}"
+  info "MGT-005: genesis mutations refused for ${identity}"
 }

@@ -56,7 +56,7 @@ upgrade_packages_to() {
         apt_get update
         apt_get install -y --allow-change-held-packages kubelet kubeadm kubectl
         apt-mark hold kubelet kubeadm kubectl
-      " > "${WORKDIR}/upgrade-${host}.log" 2>&1 || true
+      " > "${REPORT_DIR}/upgrade-${host}.log" 2>&1 || true
     ) &
   done
   wait
@@ -70,7 +70,7 @@ upgrade_packages_to() {
     fi
     stragglers="${stragglers} ${host}=${got:-unreachable}"
     info "--- ${host} did not move:"
-    tail -n 12 "${WORKDIR}/upgrade-${host}.log" 2>/dev/null | sed 's/^/      /'
+    tail -n 12 "${REPORT_DIR}/upgrade-${host}.log" 2>/dev/null | sed 's/^/      /'
   done
   [[ -z "${stragglers}" ]] ||
     fail "these machines are not on ${minor}:${stragglers}"
@@ -199,5 +199,8 @@ scenario_upgrade() {
   nodes_advertise_their_own_address "${WORKLOAD}"
   nodes_carry_provider_ids "${WORKLOAD}"
   endpoint_answers "${WORKLOAD}" "${LAB_ENDPOINT}" 6
+  assert_management_mode lab/lab self-managed
+  assert_registered_status lab/lab self-managed
+  assert_registered_kubeconfig lab/lab
   info "every node is on ${landed}, still on its own address, still behind the VIP"
 }

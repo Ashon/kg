@@ -207,7 +207,9 @@ if [ -f /etc/kubernetes/manifests/kube-vip.yaml ]; then
 fi
 
 if command -v kubeadm >/dev/null 2>&1; then
-  kubeadm reset --force || true
+  # The last etcd member can wait for a quorum that is already gone.
+  # Reserve time for local cleanup even when kubeadm cannot finish.
+  timeout --kill-after=5s 60s kubeadm reset --force || true
 fi
 
 if [ -n "${vip}" ] && command -v ip >/dev/null 2>&1; then
@@ -230,6 +232,11 @@ if command -v ip >/dev/null 2>&1; then
 fi
 
 rm -rf /etc/cni/net.d /var/lib/cni /etc/kubernetes /var/lib/etcd
+# An interrupted kubeadm reset can leave client certificates from the old CA.
+# Never let a new join reuse that identity. Do not traverse pod volume mounts.
+rm -rf /var/lib/kubelet/pki
+rm -f /var/lib/kubelet/config.yaml /var/lib/kubelet/kubeadm-flags.env
+rm -f /var/lib/kubelet/instance-config.yaml
 rm -rf /run/kubeadm /run/cluster-api
 rm -rf ` + stateDir + `
 

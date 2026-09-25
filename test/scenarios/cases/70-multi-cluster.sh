@@ -87,11 +87,15 @@ scenario_multi_cluster() {
 
   listed="$(kgc "${beta}" clusters)"
   echo "${listed}" | sed 's/^/    /'
-  echo "${listed}" | grep -qE '^alpha[[:space:]]+alpha[[:space:]]+Released' ||
+  echo "${listed}" | grep -qE '^alpha[[:space:]]+alpha[[:space:]]+released' ||
     fail "alpha is not reported as Released"
-  echo "${listed}" | grep -qE '^beta[[:space:]]+beta[[:space:]]+Released' &&
+  echo "${listed}" | grep -qE '^beta[[:space:]]+beta[[:space:]]+released' &&
     fail "beta was released along with alpha"
   info "alpha reads as Released, beta does not"
+  assert_registered_status alpha/alpha released
+  assert_registered_kubeconfig alpha/alpha
+  assert_registered_status beta/beta managed
+  info "MGT-007: released alpha is queried while beta still uses genesis"
 
   log "Releasing beta, which is the last one"
   kgc "${beta}" eject --timeout "${TIMEOUT}"
@@ -103,4 +107,21 @@ scenario_multi_cluster() {
   every_node_ready "${alpha_kubeconfig}" 2
   every_node_ready "${beta_kubeconfig}" 2
   info "both clusters serve with nothing managing them"
+
+  listed="$(kgc "${beta}" clusters --offline)"
+  echo "${listed}" | grep -qE '^alpha[[:space:]]+alpha[[:space:]]+released' ||
+    fail "alpha was forgotten when the genesis node was deleted"
+  echo "${listed}" | grep -qE '^beta[[:space:]]+beta[[:space:]]+released' ||
+    fail "beta was forgotten when the genesis node was deleted"
+  kgc "${beta}" cluster status --cluster alpha/alpha
+  kgc "${alpha}" kubeconfig --cluster beta/beta --stdout >/dev/null
+  info "both released clusters remain addressable through kg"
+  "${KG}" --state-dir "${STATE}" cluster forget --cluster alpha/alpha --yes
+  assert_management_mode beta/beta released
+  every_node_ready "${alpha_kubeconfig}" 2
+  [[ -f "${alpha_kubeconfig}" ]] || fail "MGT-008: forget deleted the kubeconfig"
+  local forgotten_status=0
+  "${KG}" --state-dir "${STATE}" cluster status --cluster alpha/alpha >/dev/null 2>&1 || forgotten_status=$?
+  ((forgotten_status != 0)) || fail "MGT-008: forgotten record still resolves"
+  info "MGT-008: forget keeps the workload, kubeconfig and other records"
 }

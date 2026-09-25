@@ -35,7 +35,8 @@ safe to rely on.
 | Roll a self-managed cluster to a newer Kubernetes | `kubectl patch` its `spec.version` | `upgrade` | machines |
 
 **containers** is every push: host containers on one docker bridge, which is
-enough for everything except an election over ARP. **machines** is nightly: KVM
+covers the container-supported cases. **machines** runs on relevant PRs, main
+pushes and nightly: KVM
 virtual machines with a kernel and a network stack each, where every scenario
 runs. [SCENARIOS.md](test/scenarios/SCENARIOS.md) says what each one asserts,
 and why.
@@ -326,11 +327,12 @@ the configuration, and changing it is a deliberate edit rather than a command.
 | `inventory trust`          | Accept the host key a machine presents now          |
 | `init`                     | Bootstrap cluster, providers, inventory             |
 | `cluster create`           | Apply the cluster; `--dry-run` prints the manifests |
-| `cluster status`           | Where the rollout has got to; `--watch` follows     |
-| `cluster delete`           | Tear the cluster down and reset its hosts           |
+| `cluster status`           | Live status; `--cluster` selects a registered cluster |
+| `cluster delete`           | Tear a genesis-managed cluster down and reset its hosts |
+| `cluster forget`           | Remove a local record, keeping the cluster and kubeconfig |
 | `cni install`              | Apply the configured CNI manifests                  |
 | `kubeconfig`               | Write the target cluster's kubeconfig               |
-| `clusters`                 | The clusters this genesis node manages              |
+| `clusters`                 | Known clusters and their management modes           |
 | `eject` / `pivot`          | Release one cluster and drop the genesis node       |
 | `reset`                    | Delete the bootstrap cluster only                   |
 
@@ -362,6 +364,66 @@ is what makes ejecting one of several possible at all.
 `kg eject` releases one cluster and leaves the rest alone. The genesis node is
 deleted once nothing is left for it to manage, and kept otherwise.
 
+## Tracking management after a handover
+
+kg keeps a local registry under `<state-dir>/clusters` (by default `~/.kg/clusters`).
+Each record identifies a cluster by namespace and name and stores its endpoint,
+kubeconfig paths and last confirmed management mode. SSH credentials and
+kubeconfig contents are not copied into the registry.
+
+| Management | Recorded when | What `cluster status` queries |
+| ---------- | ------------- | ----------------------------- |
+| `managed` | `cluster create` applies its objects, or `clusters` discovers it on the genesis node | CAPI on the genesis node |
+| `self-managed` | `eject --self-manage` successfully moves and verifies the objects | CAPI on the workload cluster |
+| `released` | `eject` successfully pauses management | Kubernetes Nodes on the workload cluster |
+
+Management mode is independent of health. An unreachable cluster stays registered
+in its last confirmed mode. Pausing CAPI manually does not mean it was released.
+`clusters` shows live genesis phases when available; `-` means that field was not
+checked. It does not contact every workload cluster to produce the list.
+
+```console
+$ kg clusters
+$ kg clusters --offline
+$ kg cluster status --cluster lab
+$ kg cluster status --cluster production/lab --watch
+$ kg kubeconfig --cluster production/lab --stdout
+```
+
+`--cluster` selects a saved record without loading the original configuration or
+SSH keys. Use `namespace/name` when names are ambiguous. Without it, the config
+still selects the cluster. Status reads current desired replicas from CAPI, so
+changes made directly to a self-managed cluster are reflected. For a released
+cluster, `kubeconfig` reads the saved file without asking for CAPI Secrets.
+
+`inventory list` and `inventory trust` also follow the registered management
+location; released clusters have no CAPI host inventory to query.
+
+An unrelated cluster's genesis node may still be running: it does not change
+where self-managed and released entries are queried. Kubeconfigs for custom
+namespaces have separate paths under `<state-dir>/kubeconfigs`; the usual
+namespace-equals-name case keeps `<state-dir>/<name>.kubeconfig`.
+
+Creation, deletion and ejection through the genesis node are refused for an
+identity registered as self-managed or released. Changing a label in a registry
+cannot adopt an existing kubeadm cluster. After retiring one outside kg, remove
+its local record before reusing its identity:
+
+```console
+$ kg cluster forget --cluster production/lab --yes
+```
+
+`forget` keeps both the cluster and its kubeconfig. `cluster delete` removes its
+record after a successful teardown. `reset` keeps the records; it does not turn
+managed clusters into released ones. A reachable genesis node will rediscover a
+forgotten cluster it still holds.
+
+The registry is local to one state directory. Keep it with the kubeconfigs;
+it is not a shared fleet database or a backup of CAPI state. Older clusters can
+be discovered while their genesis node is still present. Clusters ejected before
+this registry existed are not reconstructed automatically from kubeconfig files,
+which do not say whether CAPI was moved or removed.
+
 ## Releasing a cluster
 
 `kg eject` hands the cluster's kubeconfig over and stops managing it. The cluster
@@ -376,8 +438,8 @@ to reset the hosts underneath it.
 
 A released cluster is left paused on the genesis node rather than deleted, so its
 host claims stand and a later cluster cannot take the hosts it is running on.
-`kg clusters` shows it as `Released`. When the genesis node is deleted, the
-record goes with it.
+`kg clusters` shows its management mode as `released`. The local registry
+keeps that record after the genesis node is deleted.
 
 `--self-manage` moves the Cluster API objects into the cluster instead, which is
 what `clusterctl move` means by a pivot. The cluster then keeps itself alive:
@@ -539,7 +601,7 @@ test/scenarios/      the scenarios, and the fleet drivers they run on
 | -------- | ------------ |
 | `CI` | gofmt, vet, unit tests, build, and a check that the generated files are current |
 | `Scenarios` | every scenario a container fleet can run, on every push |
-| `Scenarios on machines` | every scenario, on KVM virtual machines, nightly |
+| `Scenarios on machines` | every scenario, on KVM virtual machines, relevant PRs/main pushes and nightly |
 | `Release` | archives, the multi-arch controller image and checksums, on a `v*` tag |
 
 The generated-files check matters more than it looks: the CRDs, RBAC and the

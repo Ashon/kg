@@ -70,6 +70,7 @@ jobs:
 
       - name: Run the scenarios
         env:
+          KG_SCENARIO_REPORT_DIR: ${{ github.workspace }}/.artifacts/e2e/docker
           DRIVER: docker
           NODE_IMAGE: ${{ inputs.node_image || 'kindest/node:v1.33.1' }}
           K8S_MINOR: "1.33"
@@ -78,3 +79,27 @@ jobs:
 
       # The harness collects diagnostics itself, before it tears the containers
       # down. A step here would only ever see an empty docker ps.
+
+      - name: Publish scenario summary
+        if: always()
+        shell: bash
+        run: |
+          report=".artifacts/e2e/docker/results.tsv"
+          if [[ -f "${report}" ]]; then
+            {
+              echo '### E2E scenarios (docker)'
+              echo '| Scenario | Result | Seconds |'
+              echo '| --- | --- | --- |'
+              awk -F '\t' '{printf "| %s | %s | %s |\n", $1, $2, $3}' "${report}"
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload E2E reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-docker-${{ github.run_attempt }}
+          path: .artifacts/e2e/docker/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14

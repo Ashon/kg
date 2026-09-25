@@ -52,6 +52,10 @@ Nothing is provisioned on the hosts yet; that is ` + "`" + invoke("cluster creat
 				return err
 			}
 
+			if err := opts.requireGenesisManaged(cfg); err != nil {
+				return err
+			}
+
 			ctx, cancel := context.WithTimeout(cmd.Context(), waitTimeout)
 			defer cancel()
 

@@ -24,6 +24,7 @@ import (
 	"github.com/Ashon/kg/internal/config"
 	"github.com/Ashon/kg/internal/kube"
 	"github.com/Ashon/kg/internal/provisioner"
+	"github.com/Ashon/kg/internal/registry"
 	"github.com/Ashon/kg/internal/render"
 )
 
@@ -36,6 +37,7 @@ func newClusterCommand(opts *Options) *cobra.Command {
 		newClusterCreateCommand(opts),
 		newClusterStatusCommand(opts),
 		newClusterDeleteCommand(opts),
+		newClusterForgetCommand(opts),
 	)
 	return cmd
 }
@@ -76,6 +78,10 @@ and runs that cloud-init on it over SSH.`,
 				return err
 			}
 
+			if err := opts.requireGenesisManaged(cfg); err != nil {
+				return err
+			}
+
 			c, err := kube.NewClient(opts.BootstrapKubeconfig())
 			if err != nil {
 				return fmt.Errorf("%w\n\nRun `%s` first", err, invoke("init"))
@@ -86,6 +92,10 @@ and runs that cloud-init on it over SSH.`,
 			if err := kube.Apply(cmd.Context(), c, objects.All()); err != nil {
 				return err
 			}
+			if err := opts.remember(cfg, registry.Managed); err != nil {
+				return err
+			}
+
 			fmt.Fprintf(out, "  %d control plane + %d worker machine(s) requested\n",
 				cfg.Cluster.ControlPlaneReplicas, totalWorkers(cfg))
 
@@ -293,55 +303,6 @@ func bootstrapFailure(hostMachine *infrav1.HostMachine) (machineFailure, bool) {
 	}, true
 }
 
-func newClusterStatusCommand(opts *Options) *cobra.Command {
-	var watch bool
-
-	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Show where the cluster rollout has got to",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := opts.Load()
-			if err != nil {
-				return err
-			}
-
-			if !opts.bootstrapClusterExists() {
-				out := cmd.OutOrStdout()
-				fmt.Fprintf(out, "Cluster %s has not been built yet.\n\n", cfg.Cluster.Name)
-				fmt.Fprintf(out, "  %sbring up the bootstrap cluster and the providers\n", pad(invoke("init")))
-				fmt.Fprintf(out, "  %sstamp out %s\n", pad(invoke("cluster create")), cfg.Cluster.Name)
-				return nil
-			}
-
-			c, err := kube.NewClient(opts.BootstrapKubeconfig())
-			if err != nil {
-				return fmt.Errorf("%w\n\nRun `%s` first", err, invoke("init"))
-			}
-
-			for {
-				s, err := clusterSummary(cmd.Context(), c, cfg)
-				if err != nil {
-					return err
-				}
-				printStatus(cmd.OutOrStdout(), cfg, s)
-
-				if !watch || s.ready() {
-					return nil
-				}
-				select {
-				case <-cmd.Context().Done():
-					return cmd.Context().Err()
-				case <-time.After(15 * time.Second):
-				}
-			}
-		},
-	}
-
-	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Keep printing until the cluster is ready")
-	return cmd
-}
-
 func printStatus(out io.Writer, cfg *config.Config, s *summary) {
 	fmt.Fprintf(out, "Cluster %s/%s\n", cfg.Cluster.Namespace, cfg.Cluster.Name)
 	fmt.Fprintf(out, "  phase          %s\n", s.cluster.Status.Phase)
@@ -413,6 +374,10 @@ kg provider runs kubeadm reset on each host before returning it to the pool.`,
 				return nil
 			}
 
+			if err := opts.requireGenesisManaged(cfg); err != nil {
+				return err
+			}
+
 			c, err := kube.NewClient(opts.BootstrapKubeconfig())
 			if err != nil {
 				return err
@@ -423,7 +388,7 @@ kg provider runs kubeadm reset on each host before returning it to the pool.`,
 			if err := c.Get(cmd.Context(), key, cluster); err != nil {
 				if apierrors.IsNotFound(err) {
 					fmt.Fprintf(cmd.OutOrStdout(), "Cluster %s is already gone.\n", key)
-					return nil
+					return opts.registry().Forget(cfg.Cluster.Namespace, cfg.Cluster.Name)
 				}
 				return err
 			}
@@ -436,7 +401,10 @@ kg provider runs kubeadm reset on each host before returning it to the pool.`,
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), waitTimeout)
 			defer cancel()
-			return waitForClusterGone(ctx, c, key, out)
+			if err := waitForClusterGone(ctx, c, key, out); err != nil {
+				return err
+			}
+			return opts.registry().Forget(cfg.Cluster.Namespace, cfg.Cluster.Name)
 		},
 	}
 

@@ -16,6 +16,7 @@ import (
 
 	"github.com/Ashon/kg/internal/capi"
 	"github.com/Ashon/kg/internal/config"
+	"github.com/Ashon/kg/internal/registry"
 )
 
 // Options are the flags shared by every subcommand.
@@ -159,8 +160,22 @@ func Execute() {
 // requireWorkloadKubeconfig returns a kubeconfig for the target cluster, taking
 // it from the management cluster whenever there is one to ask.
 func (o *Options) requireWorkloadKubeconfig(ctx context.Context, cfg *config.Config) (string, error) {
-	path := o.WorkloadKubeconfig(cfg.Cluster.Name)
+	path := o.workloadPath(cfg.Cluster.Namespace, cfg.Cluster.Name)
 	management := o.BootstrapKubeconfig()
+	r, err := o.registry().Get(cfg.Cluster.Namespace, cfg.Cluster.Name)
+	if err != nil {
+		return "", err
+	}
+	if r != nil {
+		path = r.WorkloadKubeconfig
+		if r.Mode == registry.Released {
+			if _, err := os.Stat(path); err != nil {
+				return "", fmt.Errorf("released cluster kubeconfig: %w", err)
+			}
+			return path, nil
+		}
+		management = r.ManagementKubeconfig
+	}
 
 	if _, err := os.Stat(management); err != nil {
 		// Nothing left to ask. A released cluster's kubeconfig is all there is,

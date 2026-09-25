@@ -10,11 +10,15 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"context"
 	"github.com/Ashon/kg/internal/capi"
+	"github.com/Ashon/kg/internal/registry"
+	"time"
 )
 
 func newKubeconfigCommand(opts *Options) *cobra.Command {
 	var (
+		selector string
 		output   string
 		toStdout bool
 	)
@@ -22,26 +26,17 @@ func newKubeconfigCommand(opts *Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "kubeconfig",
 		Short: "Write the target cluster's kubeconfig",
-		Long: `Reads the workload cluster's kubeconfig from the management cluster, where
-Cluster API stores it as a Secret once the control plane is up.`,
+		Long: `Reads a cluster's kubeconfig through its registered management location.
+For released clusters, uses the saved workload kubeconfig without requiring CAPI.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := opts.Load()
+			r, err := opts.selectRecord(selector)
 			if err != nil {
 				return err
 			}
-
-			// After a pivot the management cluster is the workload cluster itself,
-			// so fall back to its own kubeconfig when the bootstrap one is gone.
-			management := opts.BootstrapKubeconfig()
-			if _, err := os.Stat(management); err != nil {
-				management = opts.WorkloadKubeconfig(cfg.Cluster.Name)
-				if _, err := os.Stat(management); err != nil {
-					return fmt.Errorf("no management kubeconfig found in %s; run `%s` first", opts.StateDir, invoke("init"))
-				}
-			}
-
-			kubeconfig, err := capi.GetKubeconfig(cmd.Context(), management, cfg.Cluster.Name, cfg.Cluster.Namespace)
+			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+			defer cancel()
+			kubeconfig, err := clusterKubeconfig(ctx, r)
 			if err != nil {
 				return err
 			}
@@ -52,7 +47,7 @@ Cluster API stores it as a Secret once the control plane is up.`,
 			}
 
 			if output == "" {
-				output = opts.WorkloadKubeconfig(cfg.Cluster.Name)
+				output = r.WorkloadKubeconfig
 			}
 			if err := os.MkdirAll(filepath.Dir(output), 0o700); err != nil {
 				return err
@@ -66,8 +61,20 @@ Cluster API stores it as a Secret once the control plane is up.`,
 		},
 	}
 
+	cmd.Flags().StringVar(&selector, "cluster", "", "Registered cluster name or namespace/name (default: configuration)")
 	cmd.Flags().StringVarP(&output, "output", "o", "",
 		"Where to write the kubeconfig (default: <state-dir>/<cluster>.kubeconfig)")
 	cmd.Flags().BoolVar(&toStdout, "stdout", false, "Print the kubeconfig instead of writing a file")
 	return cmd
+}
+
+func clusterKubeconfig(ctx context.Context, r *registry.Record) (string, error) {
+	if r.Mode == registry.Released {
+		data, err := os.ReadFile(r.WorkloadKubeconfig)
+		if err != nil {
+			return "", fmt.Errorf("read released cluster kubeconfig: %w", err)
+		}
+		return string(data), nil
+	}
+	return capi.GetKubeconfig(ctx, r.ManagementKubeconfig, r.Name, r.Namespace)
 }

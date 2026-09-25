@@ -2,14 +2,36 @@
 # SPDX-License-Identifier: MIT
 name: Scenarios on machines
 
-# The container fleet runs on every push and covers six of the seven paths. This
-# one runs the seventh as well, on real virtual machines, because kube-vip elects
-# over ARP and a container has neither a kernel nor a network stack of its own.
-#
-# It is slower and heavier than the container run - six machines on a four core
-# runner, and a rollout that replaces every one of them - so it runs nightly
-# rather than per push.
+# VM coverage includes self-management and upgrades, which containers skip.
+# Run it on relevant pull requests and main pushes as well as nightly.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'config/**'
+      - 'test/scenarios/**'
+      - 'test/assets/**'
+      - 'go.*'
+      - 'Dockerfile'
+      - 'Makefile'
+      - 'hack/**'
+      - '.github/workflows/scenarios-machines.yml'
+  pull_request:
+    paths:
+      - 'api/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'config/**'
+      - 'test/scenarios/**'
+      - 'test/assets/**'
+      - 'go.*'
+      - 'Dockerfile'
+      - 'Makefile'
+      - 'hack/**'
+      - '.github/workflows/scenarios-machines.yml'
   schedule:
     - cron: "0 4 * * *"
   workflow_dispatch:
@@ -79,6 +101,7 @@ jobs:
 
       - name: Run the scenarios
         env:
+          KG_SCENARIO_REPORT_DIR: ${{ github.workspace }}/.artifacts/e2e/libvirt
           DRIVER: libvirt
           # The fleet starts a minor below what the upgrade case rolls it to;
           # the driver picks both, so they stay together.
@@ -86,3 +109,27 @@ jobs:
         # sg runs the step with the new group membership, which the shell this
         # step starts in does not have yet.
         run: sg libvirt -c "sg kvm -c './test/scenarios/run.sh'"
+
+      - name: Publish scenario summary
+        if: always()
+        shell: bash
+        run: |
+          report=".artifacts/e2e/libvirt/results.tsv"
+          if [[ -f "${report}" ]]; then
+            {
+              echo '### E2E scenarios (libvirt)'
+              echo '| Scenario | Result | Seconds |'
+              echo '| --- | --- | --- |'
+              awk -F '\t' '{printf "| %s | %s | %s |\n", $1, $2, $3}' "${report}"
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload E2E reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-libvirt-${{ github.run_attempt }}
+          path: .artifacts/e2e/libvirt/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14

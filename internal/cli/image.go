@@ -33,28 +33,31 @@ func providerImageFor(override string) (string, error) {
 	return version.Image, nil
 }
 
-// claimedHosts reports the configured hosts this cluster has taken, which are
-// the machines the controller can be scheduled onto once it moves. The claim
-// lives on the Host in the bootstrap cluster, so a genesis node holding several
-// clusters does not hand one cluster's work to another's hosts.
-func claimedHosts(ctx context.Context, c client.Client, cfg *config.Config) ([]config.HostConfig, error) {
+// imageHosts includes the cluster's claims and unclaimed inventory in its
+// namespace. A spare may run the provider after the first rolling replacement.
+// Hosts claimed by another cluster must not receive this cluster's local image.
+func imageHosts(ctx context.Context, c client.Client, cfg *config.Config) ([]config.HostConfig, error) {
 	hosts := &infrav1.HostList{}
-	if err := c.List(ctx, hosts,
-		client.InNamespace(cfg.Cluster.Namespace),
-		client.MatchingLabels{infrav1.ClusterNameLabel: cfg.Cluster.Name}); err != nil {
-		return nil, fmt.Errorf("list the hosts claimed by %s: %w", cfg.Cluster.Name, err)
+	if err := c.List(ctx, hosts, client.InNamespace(cfg.Cluster.Namespace)); err != nil {
+		return nil, fmt.Errorf("list image recipients for %s: %w", cfg.Cluster.Name, err)
 	}
-
-	claimed := map[string]bool{}
-	for i := range hosts.Items {
-		if hosts.Items[i].Status.ClaimRef != nil {
-			claimed[hosts.Items[i].Name] = true
+	eligible := map[string]bool{}
+	for _, host := range hosts.Items {
+		owner := host.Labels[infrav1.ClusterNameLabel]
+		if !host.DeletionTimestamp.IsZero() || host.Spec.Unhealthy {
+			continue
 		}
+		if owner != "" && owner != cfg.Cluster.Name {
+			continue
+		}
+		if host.Status.ClaimRef != nil && owner != cfg.Cluster.Name {
+			continue
+		}
+		eligible[host.Name] = true
 	}
-
-	out := make([]config.HostConfig, 0, len(claimed))
+	var out []config.HostConfig
 	for _, host := range cfg.Hosts {
-		if claimed[host.Name] {
+		if eligible[host.Name] {
 			out = append(out, host)
 		}
 	}

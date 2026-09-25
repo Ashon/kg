@@ -43,6 +43,7 @@ const (
 	requeueAfterStart           = 30 * time.Second
 
 	sshOperationTimeout = 60 * time.Second
+	sshResetTimeout     = 3 * time.Minute
 )
 
 // ProviderIDPrefix namespaces the provider IDs this provider issues.
@@ -452,7 +453,7 @@ func (r *HostMachineReconciler) reconcileDelete(
 		return ctrl.Result{}, err
 	}
 
-	sshCtx, cancel := context.WithTimeout(ctx, sshOperationTimeout)
+	sshCtx, cancel := context.WithTimeout(ctx, sshResetTimeout)
 	defer cancel()
 
 	reset := metav1.Condition{

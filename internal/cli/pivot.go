@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/Ashon/kg/internal/capi"
 	"github.com/Ashon/kg/internal/config"
 	"github.com/Ashon/kg/internal/kube"
+	"github.com/Ashon/kg/internal/registry"
 )
 
 func newPivotCommand(opts *Options) *cobra.Command {
@@ -65,6 +67,10 @@ not use it on a cluster you care about.`,
 				return err
 			}
 
+			if err := opts.requireGenesisManaged(cfg); err != nil {
+				return err
+			}
+
 			ctx, cancel := context.WithTimeout(cmd.Context(), waitTimeout)
 			defer cancel()
 
@@ -94,13 +100,22 @@ not use it on a cluster you care about.`,
 			}
 
 			step(out, "Fetching the target cluster's kubeconfig")
-			workloadKubeconfig := opts.WorkloadKubeconfig(cfg.Cluster.Name)
+			workloadKubeconfig := opts.workloadPath(cfg.Cluster.Namespace, cfg.Cluster.Name)
 			kubeconfig, err := capi.GetKubeconfig(ctx, bootstrapKubeconfig, cfg.Cluster.Name, cfg.Cluster.Namespace)
 			if err != nil {
 				return err
 			}
+			if err := os.MkdirAll(filepath.Dir(workloadKubeconfig), 0o700); err != nil {
+				return err
+			}
 			if err := os.WriteFile(workloadKubeconfig, []byte(kubeconfig), 0o600); err != nil {
 				return fmt.Errorf("write %s: %w", workloadKubeconfig, err)
+			}
+
+			if !dryRun {
+				if err := opts.remember(cfg, registry.Managed); err != nil {
+					return err
+				}
 			}
 
 			if selfManage {
@@ -132,6 +147,14 @@ not use it on a cluster you care about.`,
 				if err := pauseCluster(ctx, bootstrapClient, cfg); err != nil {
 					return err
 				}
+			}
+
+			mode := registry.Released
+			if selfManage {
+				mode = registry.SelfManaged
+			}
+			if err := opts.remember(cfg, mode); err != nil {
+				return fmt.Errorf("handover completed, but the registry could not be updated; the genesis node was kept: %w", err)
 			}
 
 			// The genesis node stamps out several clusters and ejects them one at
@@ -179,7 +202,7 @@ not use it on a cluster you care about.`,
 
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report what would happen without doing it")
 	cmd.Flags().BoolVar(&selfManage, "self-manage", false,
-		"Move the Cluster API objects into the cluster instead of releasing it (unfinished; re-runs kubeadm on joined hosts)")
+		"Move the Cluster API objects into the workload cluster so it manages itself")
 	cmd.Flags().BoolVar(&keepBootstrap, "keep-bootstrap", false,
 		"Leave the genesis node running afterwards")
 	cmd.Flags().StringVar(&providerImage, "provider-image", "",
@@ -297,11 +320,11 @@ func moveToCluster(ctx context.Context, req moveRequest) error {
 		return err
 	}
 	if bootstrap.ImageAvailableLocally(ctx, image) {
-		hosts, err := claimedHosts(ctx, req.bootstrapClient, req.cfg)
+		hosts, err := imageHosts(ctx, req.bootstrapClient, req.cfg)
 		if err != nil {
 			return err
 		}
-		step(req.out, "Carrying %s to the cluster's own hosts", image)
+		step(req.out, "Carrying %s to the cluster's hosts and spares", image)
 		if err := seedProviderImage(ctx, hosts, image, req.out); err != nil {
 			return err
 		}
