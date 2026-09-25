@@ -39,7 +39,7 @@ scenario_inventory() {
 $(echo "${runtimes}" | sed 's/^/      /')"
   info "runtime: $(echo "${runtimes}" | head -1)"
 
-  # kgenesis does not install kubeadm, so the host decides which Kubernetes it
+  # kg does not install kubeadm, so the host decides which Kubernetes it
   # can build and the report has to say which that is.
   echo "${kubeadms}" | grep -qE '^v[0-9]+\.[0-9]+' ||
     fail "the kubeadm column does not read as a version:

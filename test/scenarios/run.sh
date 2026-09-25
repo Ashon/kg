@@ -36,7 +36,7 @@ WORKDIR="${KG_SCENARIO_WORKDIR:-$(mktemp -d)}"
 readonly WORKDIR
 mkdir -p "${WORKDIR}"
 readonly KEY="${WORKDIR}/id_ed25519"
-readonly CONFIG="${WORKDIR}/kgenesis.yaml"
+readonly CONFIG="${WORKDIR}/kg.yaml"
 readonly STATE="${WORKDIR}/state"
 readonly KG="${ROOT}/bin/kg"
 readonly WORKLOAD="${STATE}/lab.kubeconfig"
@@ -134,7 +134,7 @@ readonly PUBKEY="$(cat "${KEY}.pub")"
 # Both are stamped with the same image, so the CLI installs what was just built
 # and the cases exercise the path an operator walks rather than one held open by
 # a flag.
-log "Building kgenesis and the provider image"
+log "Building kg and the provider image"
 make -C "${ROOT}" build \
   IMAGE="${PROVIDER_IMAGE%:*}" IMAGE_TAG="${PROVIDER_IMAGE##*:}" >/dev/null
 make -C "${ROOT}" docker-build \

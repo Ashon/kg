@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Ashon
 // SPDX-License-Identifier: MIT
 
-// Package capi drives Cluster API through the clusterctl library, so kgenesis
+// Package capi drives Cluster API through the clusterctl library, so kg
 // does not require a clusterctl binary on the genesis node.
 package capi
 
@@ -32,8 +32,9 @@ type InitOptions struct {
 	// clusterctl resolve the latest release.
 	Version string
 
-	// InfrastructureProvider is the kgenesis provider reference in clusterctl
-	// form, for example "kgenesis:v0.1.0". Empty skips it, which is what the
+	// InfrastructureProvider is this provider's reference in clusterctl form,
+	// for example "kgenesis:v0.1.0" - the name clusterctl knows it by, which is
+	// the one its components carry. Empty skips it, which is what the
 	// out-of-tree development flow does: the provider is applied from local
 	// manifests instead.
 	InfrastructureProvider string

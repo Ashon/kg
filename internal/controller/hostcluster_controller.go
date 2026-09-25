@@ -87,7 +87,7 @@ func (r *HostClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		hostCluster.Status.Initialization.Provisioned = ptr(false)
 		setCondition(&hostCluster.Status.Conditions, "Ready", metav1.ConditionFalse,
 			"MissingControlPlaneEndpoint",
-			"spec.controlPlaneEndpoint must be set: kgenesis does not allocate one for pre-provisioned hosts",
+			"spec.controlPlaneEndpoint must be set: kg does not allocate one for pre-provisioned hosts",
 			hostCluster.Generation)
 		return ctrl.Result{}, nil
 	}

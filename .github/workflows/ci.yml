@@ -52,7 +52,7 @@ jobs:
 
       # The CRDs, RBAC and the provider manifest embedded in the CLI are
       # generated. A stale copy would install the wrong thing on a genesis node,
-      # and the mismatch would only show up at `kgenesis init`.
+      # and the mismatch would only show up at `kg init`.
       - name: Check generated files are current
         run: make verify
 

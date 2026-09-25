@@ -26,7 +26,7 @@ var (
 )
 
 // String is a one line summary suitable for `--version`. The name is the
-// binary's own: kgenesis ships a CLI and a controller, and a version line that
+// binary's own: kg ships a CLI and a controller, and a version line that
 // named the project rather than the thing printing it would leave a reader
 // guessing which of the two they are looking at.
 func String(name string) string {

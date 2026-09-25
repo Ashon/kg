@@ -42,8 +42,8 @@ func newPivotCommand(opts *Options) *cobra.Command {
 		Long: `Releases one cluster from the genesis node.
 
 The cluster keeps running untouched. It is an ordinary kubeadm cluster and needs
-nothing from kgenesis to serve. What it gives up is Cluster API: no node is
-added, replaced or upgraded through kgenesis afterwards. In exchange the SSH keys
+nothing from kg to serve. What it gives up is Cluster API: no node is
+added, replaced or upgraded through kg afterwards. In exchange the SSH keys
 never leave the genesis node, and nothing is left running inside the cluster that
 could act on the hosts underneath it.
 
@@ -183,7 +183,7 @@ not use it on a cluster you care about.`,
 	cmd.Flags().BoolVar(&keepBootstrap, "keep-bootstrap", false,
 		"Leave the genesis node running afterwards")
 	cmd.Flags().StringVar(&providerImage, "provider-image", "",
-		"With --self-manage, override the kgenesis controller image installed into the cluster")
+		"With --self-manage, override the kg controller image installed into the cluster")
 	cmd.Flags().DurationVar(&waitTimeout, "timeout", 20*time.Minute, "Time budget for the whole operation")
 	return cmd
 }
@@ -248,7 +248,7 @@ func checkSelfManageable(ctx context.Context, c client.Client, cfg *config.Confi
 // pauseCluster stops the genesis node acting on a cluster it has released.
 //
 // Deleting the Cluster object would be the obvious way and is the wrong one: it
-// cascades into Machine deletion, and kgenesis answers that by running kubeadm
+// cascades into Machine deletion, and kg answers that by running kubeadm
 // reset on hosts that are serving. Pausing stops every controller for this
 // cluster while leaving the record - and the host claims that go with it - in
 // place, so a second cluster on the same genesis node cannot take the hosts the
@@ -359,7 +359,7 @@ type inventoryCount struct {
 	hostMachines int
 }
 
-// countInventory counts the kgenesis objects in a namespace.
+// countInventory counts the kg objects in a namespace.
 //
 // clusterctl moves what it discovers and says nothing about the rest, so a move
 // can report success having left every Host and HostMachine behind. Counting

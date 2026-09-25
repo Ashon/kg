@@ -19,7 +19,7 @@ scenario_build() {
   every_node_ready "${WORKLOAD}" "$((CONTROL_PLANE_REPLICAS + WORKER_REPLICAS))"
   nodes_advertise_their_own_address "${WORKLOAD}"
   nodes_carry_provider_ids "${WORKLOAD}"
-  info "every node carries a kgenesis provider ID"
+  info "every node carries a kg provider ID"
 
   local members
   members="$(KUBECONFIG="${WORKLOAD}" kubectl get nodes \

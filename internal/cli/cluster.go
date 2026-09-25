@@ -53,7 +53,7 @@ func newClusterCreateCommand(opts *Options) *cobra.Command {
 		Long: `Applies the Cluster API objects that describe the target cluster.
 
 From there the providers take over: the kubeadm bootstrap provider generates
-cloud-init per machine, and the kgenesis provider claims a host for each machine
+cloud-init per machine, and the kg provider claims a host for each machine
 and runs that cloud-init on it over SSH.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -109,7 +109,7 @@ and runs that cloud-init on it over SSH.`,
 			// for an operator to find.
 			if !cfg.Cluster.CNI.HasCNI() {
 				fmt.Fprintf(out, "\nNo CNI is configured, so every node will stay NotReady.\n")
-				fmt.Fprintf(out, "kgenesis does not bundle one; the version is yours to pin.\n\n")
+				fmt.Fprintf(out, "kg does not bundle one; the version is yours to pin.\n\n")
 				fmt.Fprintf(out, "  %s  once cluster.cni.manifests names one\n", pad(invoke("cni install")))
 			}
 			if cfg.Cluster.CNI.HasCNI() {
@@ -271,7 +271,7 @@ func clusterSummary(ctx context.Context, c client.Client, cfg *config.Config) (*
 }
 
 // bootstrapFailure reads the Provisioned condition for a run that has already
-// failed. kgenesis does not re-run kubeadm over a half-configured host, so this
+// failed. kg does not re-run kubeadm over a half-configured host, so this
 // state does not clear by itself and there is nothing to be gained by waiting.
 func bootstrapFailure(hostMachine *infrav1.HostMachine) (machineFailure, bool) {
 	condition := meta.FindStatusCondition(hostMachine.Status.Conditions,
@@ -372,7 +372,7 @@ func printStatus(out io.Writer, cfg *config.Config, s *summary) {
 	}
 }
 
-// hostForMachine finds which host a machine landed on, by the claim the kgenesis
+// hostForMachine finds which host a machine landed on, by the claim the kg
 // provider records on the Host.
 func hostForMachine(hosts []infrav1.Host, machineName string) (string, string) {
 	for _, h := range hosts {
@@ -398,7 +398,7 @@ func newClusterDeleteCommand(opts *Options) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete the cluster and reset its hosts",
 		Long: `Deletes the Cluster object. Cluster API tears the machines down, and the
-kgenesis provider runs kubeadm reset on each host before returning it to the pool.`,
+kg provider runs kubeadm reset on each host before returning it to the pool.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := opts.Load()
@@ -485,7 +485,7 @@ func newBootstrapFailedError(failures []machineFailure) error {
 
 // reportReleasedHosts says what the hosts came back as.
 //
-// A host is returned to the pool whether or not kgenesis could reach it to run
+// A host is returned to the pool whether or not kg could reach it to run
 // kubeadm reset, because a Machine stuck forever on hardware that is powered off
 // helps nobody. Reporting both the same way is what turns that trade-off into a
 // surprise: the next cluster claims a host still carrying another one's

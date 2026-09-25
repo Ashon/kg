@@ -31,7 +31,7 @@ no case at all.
 | `libvirt` | KVM virtual machines            | `vip`, `reboot` | Linux, CI nightly   |
 | `docker`  | containers on one docker bridge | neither         | Linux, CI per push  |
 
-kgenesis reaches a host over SSH and nothing else, so a container that answers
+kg reaches a host over SSH and nothing else, so a container that answers
 on port 22 and runs kubeadm is indistinguishable from a machine as far as the
 provider is concerned. What a container cannot give is a kernel and a network
 stack of its own, which is what kube-vip's election needs and what makes a
@@ -111,7 +111,7 @@ the same hardware. A host that keeps the VIP from its last life sends the next
 
 `kg eject` on the finished cluster.
 
-Asserts: the cluster still serves every node; nothing kgenesis installed is
+Asserts: the cluster still serves every node; nothing kg installed is
 running inside it; the genesis node and its kubeconfig are gone; `kg clusters`
 says so rather than reporting a parse error.
 
@@ -148,7 +148,7 @@ for.
 The cluster `self-manage` left behind, moved from one Kubernetes minor to the
 next from inside itself.
 
-kgenesis does not manage the kubeadm and kubelet on a host: it bootstraps
+kg does not manage the kubeadm and kubelet on a host: it bootstraps
 machines that are already provisioned, so the host decides which Kubernetes it
 can build. `KubeadmControlPlane` upgrades by replacing machines, which means the
 new version has to be on the machines before the rollout reaches them. Putting it

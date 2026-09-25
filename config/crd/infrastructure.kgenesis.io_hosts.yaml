@@ -63,7 +63,7 @@ spec:
             properties:
               address:
                 description: |-
-                  address is the IP address or DNS name kgenesis connects to over SSH. It is
+                  address is the IP address or DNS name kg connects to over SSH. It is
                   also used as the node's advertised address unless the bootstrap data
                   overrides it.
                 minLength: 1

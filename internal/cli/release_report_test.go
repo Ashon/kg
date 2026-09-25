@@ -32,7 +32,7 @@ func releasedHost(name, address string, reset metav1.ConditionStatus, reason, me
 	}
 }
 
-// A host is released whether or not kgenesis could reach it, so "back in the
+// A host is released whether or not kg could reach it, so "back in the
 // pool" has to distinguish the two. A host that still carries the last cluster's
 // certificates and etcd data will send the next kubeadm join somewhere strange,
 // and the operator has no way to know unless the delete says so.

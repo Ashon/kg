@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks that every file kgenesis owns carries an SPDX header, and adds the
+# Checks that every file kg owns carries an SPDX header, and adds the
 # missing ones with --fix.
 #
 # The headers follow the REUSE specification, so `SPDX-FileCopyrightText` and
@@ -92,4 +92,4 @@ if ((${#missing[@]} > 0)); then
   exit 1
 fi
 
-echo "Every file kgenesis owns carries an SPDX header."
+echo "Every file kg owns carries an SPDX header."

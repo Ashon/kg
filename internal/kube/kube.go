@@ -22,11 +22,11 @@ import (
 	infrav1 "github.com/Ashon/kg/api/v1alpha1"
 )
 
-// FieldManager identifies kgenesis in server-side apply, so an operator editing
+// FieldManager identifies kg in server-side apply, so an operator editing
 // the same objects by hand gets a real conflict instead of a silent overwrite.
-const FieldManager = "kgenesis"
+const FieldManager = "kg"
 
-// Scheme knows every type kgenesis reads or writes.
+// Scheme knows every type kg reads or writes.
 func Scheme() (*runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
 	for _, add := range []func(*runtime.Scheme) error{

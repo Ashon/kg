@@ -1,6 +1,6 @@
 # A stand-in for a pre-provisioned host, for end-to-end tests.
 #
-# kgenesis reaches hosts over SSH and nothing else, so a container that answers
+# kg reaches hosts over SSH and nothing else, so a container that answers
 # on port 22 and can run kubeadm is indistinguishable from a real machine as far
 # as the provider is concerned. kindest/node already carries systemd, containerd,
 # kubeadm, kubelet and the control plane images for its Kubernetes version, so

@@ -26,7 +26,7 @@ disk: "12GiB"
 #             kubeadm join and kube-vip have nothing to work with
 #   user-v2   the VMs reach one another, but the Mac cannot see the network at
 #             all, so it cannot be the genesis node
-#   shared    both, which is what lets kgenesis run from the Mac
+#   shared    both, which is what lets kg run from the Mac
 networks:
   - lima: shared
 

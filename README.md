@@ -1,4 +1,4 @@
-# kgenesis
+# kg
 
 [![CI](https://github.com/Ashon/kg/actions/workflows/ci.yml/badge.svg)](https://github.com/Ashon/kg/actions/workflows/ci.yml)
 [![Scenarios](https://github.com/Ashon/kg/actions/workflows/scenarios.yml/badge.svg)](https://github.com/Ashon/kg/actions/workflows/scenarios.yml)
@@ -9,10 +9,10 @@
 Turn a pool of pre-provisioned physical or virtual hosts into a Kubernetes
 cluster, from one machine acting as the genesis node.
 
-kgenesis stands up a throwaway Cluster API management cluster locally, uses the
+kg stands up a throwaway Cluster API management cluster locally, uses the
 kubeadm bootstrap provider (CABPK) to generate each machine's cloud-init, pushes
 that over SSH to a host it claims from the pool, and then lets the finished
-cluster go. The genesis node has no role after that, and neither does kgenesis:
+cluster go. The genesis node has no role after that, and neither does kg:
 what it leaves behind is an ordinary kubeadm cluster.
 
 ## What it covers
@@ -40,7 +40,7 @@ virtual machines with a kernel and a network stack each, where every scenario
 runs. [SCENARIOS.md](test/scenarios/SCENARIOS.md) says what each one asserts,
 and why.
 
-What kgenesis does not do: prepare the hosts. It bootstraps machines that already
+What kg does not do: prepare the hosts. It bootstraps machines that already
 have a container runtime, kubeadm, kubelet and kubectl, so the host decides which
 Kubernetes it can build. `kg inventory check` reports what is missing and flags a
 kubeadm a minor away from what the configuration asks for. Putting it there is
@@ -51,11 +51,11 @@ that already carry the version it is rolling to.
 
 Cluster API has a bootstrap problem: to create a cluster you need a cluster. On
 clouds the answer is a management cluster someone else already runs. On bare
-metal there is nothing to start from, so kgenesis makes one on the spot.
+metal there is nothing to start from, so kg makes one on the spot.
 
 CABPK produces cloud-init, but pre-provisioned hosts have no metadata service to
 hand it to them. The usual answers are an agent installed on every host (BYOH) or
-full lifecycle management through BMC and PXE (Metal3). kgenesis takes the third
+full lifecycle management through BMC and PXE (Metal3). kg takes the third
 path: it connects over SSH, which needs nothing installed ahead of time and works
 the same for a rack of servers and a handful of VMs.
 
@@ -68,7 +68,7 @@ genesis node (kind)                        target cluster (your hosts)
 | Cluster API core         |               |                                 |
 | CABPK (bootstrap)        | --- SSH --->  |   worker-1 worker-2 ...         |
 | KCP (control plane)      |  cloud-init   |                                 |
-| kgenesis infra provider  |               |   kube-vip holds the VIP        |
+| kg infra provider  |               |   kube-vip holds the VIP        |
 +--------------------------+               +---------------------------------+
             |
             +-- the cluster is released, then kind is deleted
@@ -76,7 +76,7 @@ genesis node (kind)                        target cluster (your hosts)
 
 What the target cluster gets is a working kubeadm cluster, not a copy of the
 genesis node. Releasing it leaves it on its own: the SSH keys stay behind, and
-nothing kgenesis installed keeps running on the hosts. See
+nothing kg installed keeps running on the hosts. See
 [Releasing a cluster](#releasing-a-cluster).
 
 The provider adds four resources:
@@ -100,7 +100,7 @@ On every host:
 - A Linux distribution with `bash`, `base64`, `install`, `setsid` and `systemctl`
 - A container runtime, normally containerd
 - `kubeadm`, `kubelet` and `kubectl`, at the minor `cluster.kubernetesVersion`
-  asks for. kgenesis does not install them: it bootstraps machines that are
+  asks for. kg does not install them: it bootstraps machines that are
   already provisioned, so the host decides which Kubernetes it can build
 - SSH as root, by key or password
 - No existing kubeadm state
@@ -123,7 +123,7 @@ else's name:
 
 ## Getting started
 
-The CLI installs as `kg`. kgenesis is the project; `kg` is what you type, and
+The CLI installs as `kg`. kg is the project; `kg` is what you type, and
 every hint the CLI prints is built from it, so you can paste its suggestions
 straight back.
 
@@ -137,7 +137,7 @@ $ kg cluster create         # stamp out the cluster and wait
 $ kg eject                  # let the cluster go, drop the genesis node
 ```
 
-kgenesis does not bundle a CNI, so `cluster.cni.manifests` has to name one
+kg does not bundle a CNI, so `cluster.cni.manifests` has to name one
 before the cluster will have a Ready node. `cluster create` says so when it is
 missing rather than reporting a cluster that is up and leaving the reason to be
 found. See [CNI](#cni).
@@ -153,7 +153,11 @@ rollout.
 
 ## Configuration
 
-`~/.kg/config`, in YAML:
+`~/.kg/config`, in YAML. The command is `kg`, but the names Kubernetes stores -
+the API group, the labels, the provider ID prefix, the `kgenesis-system`
+namespace and the paths on the hosts - still say kgenesis. They are what a
+running cluster reads, so they stay put: a cluster built by any release keeps
+working, and can still take a newer controller.
 
 ```yaml
 apiVersion: kgenesis.io/v1alpha1
@@ -190,7 +194,7 @@ hosts:
 `kg config validate` reports every problem at once, so a broken inventory
 takes one round trip to fix rather than one per host.
 
-Two escape hatches exist for what kgenesis does not model.
+Two escape hatches exist for what kg does not model.
 `cluster.preKubeadmCommands` and `cluster.postKubeadmCommands` run on every node
 around kubeadm, for a vendor agent, storage setup, NIC tuning, or an extra
 kubeadm configuration document. `cluster.ignorePreflightErrors` downgrades
@@ -216,11 +220,11 @@ workers:
 ```
 
 Selectors match labels on `Host` objects, which come from each host's `labels`
-in the config plus the `kgenesis.io/role` label kgenesis adds.
+in the config plus the `kgenesis.io/role` label kg adds.
 
 ### CNI
 
-kgenesis does not bundle a CNI. Bundling one would mean shipping a copy that goes
+kg does not bundle a CNI. Bundling one would mean shipping a copy that goes
 stale, and deriving a download URL from a provider name breaks as soon as
 upstream reorganises its releases. Give it manifests instead, so the version is
 yours to pin and an air-gapped install works the same way:
@@ -235,7 +239,7 @@ They are applied at the end of `cluster create --wait`, or on demand with
 
 ### Control plane endpoint
 
-Every node joins through one address. With `virtualIP.enabled`, kgenesis writes a
+Every node joins through one address. With `virtualIP.enabled`, kg writes a
 kube-vip static pod onto the control plane hosts, which raises the VIP on
 whichever host holds the lease. Leave it disabled when an external load balancer
 already serves the endpoint.
@@ -263,7 +267,7 @@ the first place to look; its tail is also copied onto the `HostMachine`'s
 
 Cluster API pairs a Node with its Machine by provider ID, so the kubelet has to
 register with one. It cannot come from the `KubeadmConfig`, because the bootstrap
-data is generated per Machine before any host has been claimed. kgenesis knows
+data is generated per Machine before any host has been claimed. kg knows
 the value by the time it pushes the script, so it rewrites the kubeadm
 configuration in flight, adding `provider-id` to
 `nodeRegistration.kubeletExtraArgs`.
@@ -289,7 +293,7 @@ That default is wrong on any host with more than one interface, and actively
 breaks a cluster whose hosts sit behind a per-machine NAT: every node publishes
 the identical NAT address, so Nodes collide on it, the `kubernetes` Service
 points at whichever answers, and the second etcd member never finds the first.
-The address in the inventory is the one kgenesis reaches the host on, so that is
+The address in the inventory is the one kg reaches the host on, so that is
 the one the cluster uses.
 
 ## Host key policies
@@ -302,7 +306,7 @@ the one the cluster uses.
 
 A mismatch is never retried into: it means the host changed identity, which an
 operator has to resolve. A machine that was legitimately reinstalled looks
-exactly like one being impersonated, so kgenesis will not guess:
+exactly like one being impersonated, so kg will not guess:
 
 ```console
 $ kg inventory trust kg-cp-1
@@ -330,7 +334,7 @@ the configuration, and changing it is a deliberate edit rather than a command.
 | `eject` / `pivot`          | Release one cluster and drop the genesis node       |
 | `reset`                    | Delete the bootstrap cluster only                   |
 
-Everything kgenesis keeps lives under `~/.kg`: the configuration, the bootstrap
+Everything kg keeps lives under `~/.kg`: the configuration, the bootstrap
 cluster's kubeconfig, and the workload cluster's. Keeping the kubeconfigs out of
 `~/.kube` means bootstrapping never disturbs the contexts you already have.
 Override with `--state-dir`.
@@ -362,12 +366,12 @@ deleted once nothing is left for it to manage, and kept otherwise.
 
 `kg eject` hands the cluster's kubeconfig over and stops managing it. The cluster
 itself is not touched: it is an ordinary kubeadm cluster and needs nothing from
-kgenesis to serve.
+kg to serve.
 
 What it gives up is Cluster API. Nodes are not added, replaced or upgraded
-through kgenesis afterwards, and there is no going back - Cluster API does not
+through kg afterwards, and there is no going back - Cluster API does not
 adopt an existing kubeadm cluster. What it gains is that the SSH keys never leave
-the genesis node, and nothing kgenesis installed is left running with the power
+the genesis node, and nothing kg installed is left running with the power
 to reset the hosts underneath it.
 
 A released cluster is left paused on the genesis node rather than deleted, so its
@@ -389,7 +393,7 @@ the moment one goes. A cluster that cannot meet this can still be released, whic
 asks nothing of it.
 
 `clusterctl move` carries objects but not their status, by design: a provider is
-expected to rebuild status on the next reconcile. kgenesis reads the claim back
+expected to rebuild status on the next reconcile. kg reads the claim back
 off the Host itself, where a move carries it, so what arrives is a cluster still
 running the hosts it had rather than one reaching for new ones.
 
@@ -442,7 +446,7 @@ install, which is the first thing to check when the controller will not start.
 
 ```console
 $ kg version
-kgenesis v0.1.0 (commit 1a2b3c4, darwin/arm64, go1.27.1), built 2026-09-23T05:00:00Z
+kg v0.1.0 (commit 1a2b3c4, darwin/arm64, go1.27.1), built 2026-09-23T05:00:00Z
 controller image ghcr.io/ashon/kg:v0.1.0
 ```
 
@@ -461,7 +465,7 @@ debug on hardware. The cloud-config renderer is driven by CABPK's own generator,
 so an upstream template change shows up there rather than on a half-bootstrapped
 host, and the SSH client is tested against an in-process SSH server.
 
-`make e2e` builds a real cluster. kgenesis reaches hosts over SSH and nothing
+`make e2e` builds a real cluster. kg reaches hosts over SSH and nothing
 else, so containers running sshd stand in for machines; they are built from
 kindest/node, which already carries systemd, containerd, kubeadm, kubelet and
 the control plane images, so kubeadm genuinely runs and the test needs no
@@ -482,7 +486,7 @@ A bootstrap cluster plus one systemd container per host exhausts the default
 inotify budget, and kube-proxy then dies with `too many open files` while
 nothing in the cluster can reach the API server. And `/proc/swaps` is not
 namespaced, so the containers see the machine's swap and kubelet refuses to
-start; kgenesis cannot turn that off from inside, because the swapfile is not in
+start; kg cannot turn that off from inside, because the swapfile is not in
 their mount namespace. On a real host it is.
 
 On Docker Desktop the harness skips the CLI-side `inventory check`, because
@@ -547,11 +551,11 @@ install the wrong thing on a genesis node without anything failing until
 
 MIT. See [LICENSE](LICENSE).
 
-Every file kgenesis owns carries an SPDX header, in the form the REUSE
+Every file kg owns carries an SPDX header, in the form the REUSE
 specification defines, so the licence is machine readable rather than a prose
 notice somebody has to interpret. `make verify` fails when one is missing.
 
-kgenesis builds on Cluster API and its kubeadm bootstrap and control plane
+kg builds on Cluster API and its kubeadm bootstrap and control plane
 providers, which are Apache 2.0, and it installs cert-manager, a CNI you supply
 and optionally kube-vip into the clusters it creates. Those keep their own
 licences; nothing here relicenses them. One file is vendored rather than

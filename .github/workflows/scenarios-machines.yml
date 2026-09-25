@@ -74,7 +74,7 @@ jobs:
       # per machine do not fit on the root filesystem.
       - name: Make room for the machine images
         run: |
-          sudo install -d -m 0755 /mnt/kgenesis-images
+          sudo install -d -m 0755 /mnt/kg-images
           df -h / /mnt
 
       - name: Run the scenarios

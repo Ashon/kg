@@ -41,7 +41,7 @@ func newInitCommand(opts *Options) *cobra.Command {
 		Long: `Turns this machine into a genesis node.
 
 It creates a kind cluster, installs cert-manager, the Cluster API core,
-the kubeadm bootstrap and control plane providers, and the kgenesis
+the kubeadm bootstrap and control plane providers, and the kg
 infrastructure provider, then loads the host inventory into it.
 
 Nothing is provisioned on the hosts yet; that is ` + "`" + invoke("cluster create") + "`" + `.`,
@@ -84,7 +84,7 @@ Nothing is provisioned on the hosts yet; that is ` + "`" + invoke("cluster creat
 				return err
 			}
 
-			step(out, "Installing the kgenesis infrastructure provider")
+			step(out, "Installing the kg infrastructure provider")
 			image, err := providerImageFor(providerImage)
 			if err != nil {
 				return err
@@ -120,7 +120,7 @@ Nothing is provisioned on the hosts yet; that is ` + "`" + invoke("cluster creat
 	}
 
 	cmd.Flags().StringVar(&providerImage, "provider-image", "",
-		"Override the kgenesis controller image, for running a locally built provider")
+		"Override the kg controller image, for running a locally built provider")
 	cmd.Flags().BoolVar(&loadImage, "load-image", false,
 		"Load the controller image from the local Docker daemon even when it is not visible there")
 	cmd.Flags().DurationVar(&waitTimeout, "timeout", 15*time.Minute,

@@ -104,7 +104,7 @@ func (c *Cluster) Delete(kubeconfigPath string) error {
 }
 
 // LoadImage makes a locally built image available inside the cluster, which is
-// how the kgenesis provider image gets in without a registry.
+// how the kg provider image gets in without a registry.
 func (c *Cluster) LoadImage(ctx context.Context, image string) error {
 	nodes, err := c.provider.ListNodes(c.Name)
 	if err != nil {

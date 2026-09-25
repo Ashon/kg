@@ -22,7 +22,7 @@ type kubeletArg struct {
 	value string
 }
 
-// kubeadmPatch is everything kgenesis knows about the machine that the bootstrap
+// kubeadmPatch is everything kg knows about the machine that the bootstrap
 // data, written before any host was claimed, could not.
 type kubeadmPatch struct {
 	kubeletArgs      []kubeletArg

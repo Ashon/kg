@@ -314,7 +314,7 @@ func findBootstrapTemplate(t *testing.T, objects *Objects, name string) *bootstr
 }
 
 // The preflight commands travel through CABPK's cloud-config template and the
-// kgenesis renderer before a host ever sees them, so their quoting has to
+// kg renderer before a host ever sees them, so their quoting has to
 // survive both. They also run under `set -e`: a step that is merely unnecessary
 // on some hosts must not read as a failure there.
 func TestPreflightCommandsSurviveRendering(t *testing.T) {
@@ -361,7 +361,7 @@ func TestPreflightCommandsSurviveRendering(t *testing.T) {
 	}
 }
 
-// The operator's commands run after the ones kgenesis needs, and kube-vip
+// The operator's commands run after the ones kg needs, and kube-vip
 // appends after both. A shared backing array would let one render leak into the
 // next, so the result has to be a copy.
 func TestRenderAppendsUserCommands(t *testing.T) {
@@ -379,7 +379,7 @@ func TestRenderAppendsUserCommands(t *testing.T) {
 	if !containsString(pre, "echo mine-pre") {
 		t.Errorf("the control plane is missing the operator's pre command: %v", pre)
 	}
-	// kgenesis's own preparation has to come first.
+	// kg's own preparation has to come first.
 	if pre[0] != nodePreflightCommands()[0] {
 		t.Errorf("user commands displaced the preflight: %v", pre)
 	}

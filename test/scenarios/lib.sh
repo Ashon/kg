@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Ashon
 # SPDX-License-Identifier: MIT
 #
-# Shared ground for the scenarios: the fleet's shape, the configuration kgenesis
+# Shared ground for the scenarios: the fleet's shape, the configuration kg
 # is given, and the assertions the cases lean on. Everything machine-specific is
 # behind the driver, so the same case runs against virtual machines and against
 # containers and asserts the same things.
@@ -22,7 +22,7 @@ CONTROL_PLANE_REPLICAS="${CONTROL_PLANE_REPLICAS:-3}"
 WORKER_HOSTS="${WORKER_HOSTS:-3}"
 WORKER_REPLICAS="${WORKER_REPLICAS:-2}"
 
-PROVIDER_IMAGE="${PROVIDER_IMAGE:-kgenesis:scenarios}"
+PROVIDER_IMAGE="${PROVIDER_IMAGE:-kg:scenarios}"
 TIMEOUT="${TIMEOUT:-40m}"
 KEEP="${KEEP:-0}"
 REUSE="${REUSE:-0}"
@@ -55,8 +55,8 @@ driver_supports() {
   esac
 }
 
-# on_host runs a command as root over the same SSH path kgenesis uses, so a case
-# checks what kgenesis would see rather than what the driver can reach through
+# on_host runs a command as root over the same SSH path kg uses, so a case
+# checks what kg would see rather than what the driver can reach through
 # its own agent.
 on_host() {
   local ip="$1"; shift
@@ -225,7 +225,7 @@ nodes_carry_provider_ids() {
     fi
   done < <(KUBECONFIG="${kubeconfig}" kubectl get nodes \
     -o jsonpath='{range .items[*]}{.metadata.name} {.spec.providerID}{"\n"}{end}')
-  ((missing == 0)) || fail "a node is missing its kgenesis provider ID"
+  ((missing == 0)) || fail "a node is missing its kg provider ID"
 }
 
 # endpoint_answers fails unless the API server is reachable on the address every
@@ -342,7 +342,7 @@ $(echo "${wrong}" | sed 's/^/      /')"
 #
 #   machines_by_age <kubeconfig> control-plane|worker
 #
-# The namespace is the cluster's name, which is how kgenesis lays a cluster out.
+# The namespace is the cluster's name, which is how kg lays a cluster out.
 machines_by_age() {
   local kubeconfig="$1" role="$2" selector="cluster.x-k8s.io/control-plane"
   [[ "${role}" == "control-plane" ]] || selector="!${selector}"

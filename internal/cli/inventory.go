@@ -119,7 +119,7 @@ func checkHost(ctx context.Context, host config.HostConfig, wantVersion string) 
 		result.err = fmt.Errorf("check privileges: %w", err)
 		return result
 	} else if trimmed := strings.TrimSpace(res.Stdout); trimmed != "0" {
-		result.err = fmt.Errorf("connects as uid %s; kgenesis needs root", trimmed)
+		result.err = fmt.Errorf("connects as uid %s; kg needs root", trimmed)
 		return result
 	}
 
@@ -297,7 +297,7 @@ func newInventoryTrustCommand(opts *Options) *cobra.Command {
 		Long: `Forgets the SSH host key pinned for a host, so the next connection pins
 whatever the machine presents.
 
-Under the TOFU policy kgenesis pins the key it first sees and refuses the host
+Under the TOFU policy kg pins the key it first sees and refuses the host
 for good if it ever changes, because that is what an impersonated machine looks
 like. A machine that was legitimately reinstalled looks exactly the same, and
 this is how an operator says which of the two it was.
@@ -375,7 +375,7 @@ func dashIfEmpty(s string) string {
 // kubeadmMismatch reports a host whose kubeadm is not the release the cluster
 // is configured for.
 //
-// kgenesis does not install kubeadm, so the host decides which Kubernetes it can
+// kg does not install kubeadm, so the host decides which Kubernetes it can
 // build. A minor apart from the configuration is not a warning to be read later:
 // kubeadm refuses, several minutes into a rollout, and says nothing about where
 // the number it disagreed with came from.

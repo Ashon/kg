@@ -4,7 +4,7 @@
 #
 # A fleet of containers on one docker bridge.
 #
-# kgenesis reaches a host over SSH and nothing else, so a container that answers
+# kg reaches a host over SSH and nothing else, so a container that answers
 # on port 22 and can run kubeadm is indistinguishable from a real machine as far
 # as the provider is concerned. kindest/node already carries systemd, containerd,
 # kubeadm, kubelet and the control plane images, so the only thing missing is
@@ -24,7 +24,7 @@ WORKER_HOSTS="${WORKER_HOSTS:-2}"
 WORKER_REPLICAS="${WORKER_REPLICAS:-1}"
 
 NODE_IMAGE="${NODE_IMAGE:-kindest/node:v1.33.1}"
-HOST_IMAGE="${HOST_IMAGE:-kgenesis-host:scenarios}"
+HOST_IMAGE="${HOST_IMAGE:-kg-host:scenarios}"
 # The bootstrap cluster is a kind cluster, and kind puts its node on a network
 # of its own. The provider reaches the hosts from inside that cluster, so the
 # hosts have to be on the same bridge or every one of them reads as unreachable.

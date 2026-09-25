@@ -22,7 +22,7 @@ func newResetCommand(opts *Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reset",
 		Short: "Delete the bootstrap cluster on this genesis node",
-		Long: `Removes the ephemeral kind cluster and the kubeconfig kgenesis wrote for it.
+		Long: `Removes the ephemeral kind cluster and the kubeconfig kg wrote for it.
 
 This touches nothing on the hosts. Use ` + "`" + invoke("cluster delete") + "`" + ` first if
 you want the hosts reset and returned to the pool.`,

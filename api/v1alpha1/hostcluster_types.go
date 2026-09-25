@@ -15,7 +15,7 @@ import (
 // VIP served by kube-vip or an external load balancer.
 type HostClusterSpec struct {
 	// controlPlaneEndpoint is the address the workload cluster's API server is
-	// reachable at. kgenesis does not allocate it; it must already be routable to
+	// reachable at. kg does not allocate it; it must already be routable to
 	// the control plane hosts (typically a kube-vip managed VIP).
 	// +optional
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty,omitzero"`

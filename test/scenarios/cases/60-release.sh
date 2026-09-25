@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Ashon
 # SPDX-License-Identifier: MIT
 #
-# Letting a cluster go: it keeps serving, and nothing kgenesis installed stays
+# Letting a cluster go: it keeps serving, and nothing kg installed stays
 # behind with the power to reset the hosts underneath it.
 
 scenario_release() {
@@ -16,11 +16,11 @@ scenario_release() {
   info "every node is still Ready and the endpoint still answers"
 
   KUBECONFIG="${WORKLOAD}" kubectl get namespace kgenesis-system >/dev/null 2>&1 &&
-    fail "the released cluster is running the kgenesis provider"
+    fail "the released cluster is running the kg provider"
   KUBECONFIG="${WORKLOAD}" kubectl get secret -A \
     -l clusterctl.cluster.x-k8s.io/move --no-headers 2>/dev/null | grep -q . &&
     fail "an SSH credential followed the cluster it was supposed to stay behind"
-  info "nothing kgenesis installed is running in it"
+  info "nothing kg installed is running in it"
 
   kind get clusters 2>/dev/null | grep -q '^kgenesis-bootstrap$' &&
     fail "the genesis node is still running after the release"

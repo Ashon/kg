@@ -99,7 +99,7 @@ jobs:
             printf 'installs. `kg version` reports it, which is the first thing to check when the\n'
             printf 'controller will not start.\n\n'
             printf 'The hosts need a container runtime, kubeadm, kubelet and kubectl already on\n'
-            printf 'them; `kg inventory check` reports what is missing. kgenesis does not bundle a\n'
+            printf 'them; `kg inventory check` reports what is missing. kg does not bundle a\n'
             printf 'CNI, so name one under `cluster.cni.manifests` or the nodes stay NotReady.\n\n'
             printf '`provider-components.yaml` is the manifest that CLI has embedded, for reading\n'
             printf 'it without one.\n'

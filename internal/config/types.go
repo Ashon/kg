@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Ashon
 // SPDX-License-Identifier: MIT
 
-// Package config defines the kgenesis.yaml file: the single input a genesis node
+// Package config defines the genesis configuration: the single input a genesis node
 // needs to stamp a cluster out of a pool of pre-provisioned hosts.
 package config
 
@@ -12,7 +12,7 @@ const (
 	Kind = "GenesisConfig"
 )
 
-// Config is the root of kgenesis.yaml.
+// Config is the root of the genesis configuration.
 type Config struct {
 	APIVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
@@ -54,7 +54,7 @@ type ClusterConfig struct {
 
 	// preKubeadmCommands and postKubeadmCommands run on every node, before and
 	// after kubeadm. They are the escape hatch for whatever a particular fleet
-	// needs that kgenesis does not model: a vendor agent, storage setup, NIC
+	// needs that kg does not model: a vendor agent, storage setup, NIC
 	// tuning, or an extra kubeadm configuration document appended to
 	// /run/kubeadm/kubeadm.yaml.
 	//
@@ -94,7 +94,7 @@ type NetworkConfig struct {
 
 // CNIConfig points at the manifests that install a CNI.
 //
-// kgenesis does not bundle a CNI or pin one to a version of its own. Bundling
+// kg does not bundle a CNI or pin one to a version of its own. Bundling
 // would mean shipping a copy that goes stale, and deriving a download URL from a
 // provider name would break the moment upstream reorganises its releases. A
 // manifest you name is also what works air-gapped, and it is what `helm template`

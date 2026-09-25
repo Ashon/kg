@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Ashon
 # SPDX-License-Identifier: MIT
 #
-# Prepares a machine to be a kgenesis host: root SSH, and the packages kgenesis
+# Prepares a machine to be a kg host: root SSH, and the packages kg
 # expects to already be there.
 #
 #   provision-host.sh <address> <interface> <kubernetes minor> <authorized key>
@@ -10,7 +10,7 @@
 # An empty interface leaves the network alone, for a fleet whose addresses come
 # from somewhere else.
 #
-# kgenesis does not install a container runtime or kubeadm. It bootstraps hosts
+# kg does not install a container runtime or kubeadm. It bootstraps hosts
 # that are already provisioned, so this script plays the part of whatever builds
 # a site's machine image.
 set -euo pipefail
@@ -38,7 +38,7 @@ fi
 
 # Some hypervisors hand the guest a fresh cloud-init instance id on every start,
 # so cloud-init treats each boot as a new machine and regenerates the SSH host
-# keys. Real hardware does not change identity when it reboots, and kgenesis pins
+# keys. Real hardware does not change identity when it reboots, and kg pins
 # the key it first saw, so a host that came back from a reboot would be refused
 # for good. Keeping the keys is what makes the fleet behave like the thing it
 # stands in for.

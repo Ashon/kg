@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # kindnet, extracted from a kind cluster by hack/extract-kindnet.sh. It comes
-# from sigs.k8s.io/kind and stays under kind's Apache 2.0 licence; kgenesis
+# from sigs.k8s.io/kind and stays under kind's Apache 2.0 licence; kg
 # vendors it for the end-to-end test and does not relicense it.
 # Vendored so the end-to-end test needs no network: the kindnetd image is
 # already inside the kindest/node image the fake hosts are built from.

@@ -17,7 +17,7 @@ import (
 func newConfigCommand(opts *Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Create and check the kgenesis configuration file",
+		Short: "Create and check the kg configuration file",
 	}
 	cmd.AddCommand(newConfigInitCommand(opts), newConfigValidateCommand(opts))
 	return cmd
@@ -124,7 +124,7 @@ cluster:
   # a single cluster be ejected while the genesis node keeps the rest.
   # namespace: lab
   # The version kubeadm installs on the hosts. There is no default: pick the
-  # version you actually want rather than inheriting whatever kgenesis was built
+  # version you actually want rather than inheriting whatever kg was built
   # against.
   kubernetesVersion: v1.34.1
 
@@ -142,7 +142,7 @@ cluster:
     podCIDR: 10.244.0.0/16
     serviceCIDR: 10.96.0.0/12
 
-  # Applied to the workload cluster once its API server answers. kgenesis does
+  # Applied to the workload cluster once its API server answers. kg does
   # not bundle a CNI: give it manifests, so the version is yours to pin and an
   # air-gapped install works the same way. For a chart-based CNI, render it once:
   #
@@ -159,7 +159,7 @@ cluster:
     interface: ""
 
   # Run on every node around kubeadm, for whatever this fleet needs that
-  # kgenesis does not model. They run under set -e, so a command that is only
+  # kg does not model. They run under set -e, so a command that is only
   # sometimes necessary has to tolerate its own absence.
   # preKubeadmCommands:
   #   - /opt/vendor/prepare-nic.sh

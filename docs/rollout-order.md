@@ -16,12 +16,12 @@ starts, and this page is that answer.
 | Question | Decided by | Rule |
 | -------- | ---------- | ---- |
 | Which control plane machine goes next | `KubeadmControlPlane` | the oldest, with the name breaking a tie |
-| Which worker goes next | `MachineDeployment` `spec.deletion.order` | the oldest, because kgenesis renders `Oldest`. Cluster API defaults to `Random` |
-| Which host the replacement lands on | kgenesis | the first free host of the role, in inventory order |
+| Which worker goes next | `MachineDeployment` `spec.deletion.order` | the oldest, because kg renders `Oldest`. Cluster API defaults to `Random` |
+| Which host the replacement lands on | kg | the first free host of the role, in inventory order |
 
-The first is Cluster API's own behaviour and kgenesis leaves it alone. The second
-is a field kgenesis sets so worker pools go the same way the control plane
-already does. The third is kgenesis's alone: hosts come from a pool, and nothing
+The first is Cluster API's own behaviour and kg leaves it alone. The second
+is a field kg sets so worker pools go the same way the control plane
+already does. The third is kg's alone: hosts come from a pool, and nothing
 in Cluster API has an opinion about which one a machine gets.
 
 ### Inventory order

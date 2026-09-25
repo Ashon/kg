@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Ashon
 // SPDX-License-Identifier: MIT
 
-// Package cli implements the kgenesis command tree.
+// Package cli implements the kg command tree.
 package cli
 
 import (
@@ -24,7 +24,7 @@ type Options struct {
 	ConfigPath string
 
 	// StateDir holds the bootstrap cluster's kubeconfig and the workload
-	// kubeconfig kgenesis writes. It sits beside the configuration, and out of
+	// kubeconfig kg writes. It sits beside the configuration, and out of
 	// ~/.kube, so bootstrapping never disturbs the contexts the operator already
 	// has.
 	StateDir string
@@ -55,7 +55,7 @@ func NewRootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   binaryName,
 		Short: "Turn a pool of pre-provisioned hosts into a Kubernetes cluster",
-		Long: `kgenesis makes the machine it runs on a genesis node: a temporary Cluster API
+		Long: `kg makes the machine it runs on a genesis node: a temporary Cluster API
 management cluster that stamps a real Kubernetes cluster onto physical or virtual
 hosts you already have, over SSH.
 
@@ -89,9 +89,9 @@ The usual sequence:
 	}
 
 	cmd.PersistentFlags().StringVarP(&opts.ConfigPath, "config", "c", defaultConfigPath(),
-		"Path to the kgenesis configuration file (also KG_CONFIG)")
+		"Path to the kg configuration file (also KG_CONFIG)")
 	cmd.PersistentFlags().StringVar(&opts.StateDir, "state-dir", defaultState,
-		"Directory for the kubeconfigs kgenesis manages")
+		"Directory for the kubeconfigs kg manages")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false,
 		"Show the output of the underlying kind and clusterctl operations")
 
@@ -111,7 +111,7 @@ The usual sequence:
 	return cmd
 }
 
-// ConfigDir is where kgenesis keeps a configuration when none is given.
+// ConfigDir is where kg keeps a configuration when none is given.
 const ConfigDir = ".kg"
 
 // ConfigFile is the name of that configuration. It is YAML, and named without an

@@ -41,7 +41,7 @@ const (
 
 // HostSpec describes how to reach a pre-provisioned machine.
 type HostSpec struct {
-	// address is the IP address or DNS name kgenesis connects to over SSH. It is
+	// address is the IP address or DNS name kg connects to over SSH. It is
 	// also used as the node's advertised address unless the bootstrap data
 	// overrides it.
 	// +required

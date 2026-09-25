@@ -60,7 +60,7 @@ func TestNoHardcodedInvocationsInHints(t *testing.T) {
 	subcommands := []string{
 		"config", "inventory", "init", "cluster", "cni", "kubeconfig", "pivot", "reset", "version",
 	}
-	hardcoded := regexp.MustCompile(`kgenesis (` + strings.Join(subcommands, "|") + `)\b`)
+	hardcoded := regexp.MustCompile(`kg (` + strings.Join(subcommands, "|") + `)\b`)
 
 	entries, err := filepath.Glob("*.go")
 	if err != nil {
@@ -82,7 +82,7 @@ func TestNoHardcodedInvocationsInHints(t *testing.T) {
 				continue
 			}
 			t.Errorf(`%s:%d hardcodes %q; build it with invoke(%q) instead:
-	%s`, path, i+1, match, strings.TrimPrefix(match, "kgenesis "), strings.TrimSpace(line))
+	%s`, path, i+1, match, strings.TrimPrefix(match, "kg "), strings.TrimSpace(line))
 		}
 	}
 }

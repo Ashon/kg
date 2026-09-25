@@ -41,7 +41,7 @@ Until a CNI is installed the nodes stay NotReady, so this runs automatically at
 the end of ` + "`" + invoke("cluster create --wait") + "`" + `. Run it by hand when you
 skipped the wait, or after changing the manifests.
 
-kgenesis does not bundle a CNI. For a chart-based one, render it first:
+kg does not bundle a CNI. For a chart-based one, render it first:
 
   helm template cilium cilium/cilium --version 1.16.5 \
     --namespace kube-system > cni/cilium.yaml`,

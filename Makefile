@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Ashon
 # SPDX-License-Identifier: MIT
 
-# kgenesis - build, generate and test targets.
+# kg - build, generate and test targets.
 
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
@@ -45,7 +45,7 @@ components: ## Rebuild the provider manifest embedded in the CLI
 	./hack/build-components.sh
 
 .PHONY: license-headers
-license-headers: ## Add the SPDX header to any file kgenesis owns that lacks one
+license-headers: ## Add the SPDX header to any file kg owns that lacks one
 	./hack/license-headers.sh --fix
 
 .PHONY: fmt

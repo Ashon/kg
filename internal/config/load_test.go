@@ -20,7 +20,7 @@ func write(t *testing.T, body string) string {
 		t.Fatalf("write key: %v", err)
 	}
 
-	path := filepath.Join(dir, "kgenesis.yaml")
+	path := filepath.Join(dir, "kg.yaml")
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}

@@ -422,7 +422,7 @@ func (r *HostMachineReconciler) bootstrapData(ctx context.Context, machine *clus
 	// Ignition would need a different renderer; failing here is clearer than
 	// feeding JSON to a cloud-config parser.
 	if format, ok := secret.Data["format"]; ok && string(format) != "" && string(format) != "cloud-config" {
-		return nil, fmt.Errorf("bootstrap secret %s has format %q; kgenesis renders cloud-config",
+		return nil, fmt.Errorf("bootstrap secret %s has format %q; kg renders cloud-config",
 			key, string(format))
 	}
 	return data, nil
@@ -512,7 +512,7 @@ func (r *HostMachineReconciler) releaseHost(ctx context.Context, host *infrav1.H
 	return nil
 }
 
-// ProviderID is the stable identity kgenesis gives a host. The same value goes
+// ProviderID is the stable identity kg gives a host. The same value goes
 // into the kubelet's --provider-id, which is what lets Cluster API match a Node
 // back to its Machine.
 func ProviderID(host *infrav1.Host) string {

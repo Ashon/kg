@@ -39,7 +39,7 @@ info() { printf '    %s\n' "$*"; }
 rm -rf "${DIST}"
 mkdir -p "${DIST}"
 
-log "Building kgenesis ${VERSION}"
+log "Building kg ${VERSION}"
 info "controller image ${MANAGER_IMAGE}"
 
 for platform in ${PLATFORMS}; do

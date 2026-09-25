@@ -16,7 +16,7 @@ const (
 
 const (
 	// RoleLabel marks the intended role of a Host. Used by the default host
-	// selectors that kgenesis renders: "control-plane" or "worker".
+	// selectors that kg renders: "control-plane" or "worker".
 	RoleLabel = "kgenesis.io/role"
 
 	// ClaimedByLabel names the HostMachine holding a Host.

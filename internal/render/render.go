@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Ashon
 // SPDX-License-Identifier: MIT
 
-// Package render turns a kgenesis.yaml into the Cluster API objects that
-// describe the target cluster, plus the Host pool and SSH secrets the kgenesis
+// Package render turns a genesis configuration into the Cluster API objects that
+// describe the target cluster, plus the Host pool and SSH secrets the kg
 // infrastructure provider draws from.
 package render
 
@@ -410,7 +410,7 @@ func nodeTaints(taints []config.Taint) *[]corev1.Taint {
 //
 // They run under `set -e`, so anything that is merely unnecessary on some hosts
 // must not be written as a hard failure.
-// withUserCommands appends the operator's commands to kgenesis's own, returning
+// withUserCommands appends the operator's commands to kg's own, returning
 // a fresh slice. The copy matters: kube-vip appends to the result afterwards,
 // and it must not reach back into the parsed configuration.
 func withUserCommands(ours, theirs []string) []string {
@@ -429,7 +429,7 @@ func nodePreflightCommands() []string {
 		"awk 'NR > 1 { print $1 }' /proc/swaps | while read -r area; do swapoff \"$area\" || true; done",
 		"if [ -f /etc/fstab ]; then sed -ri 's/^([^#].*\\sswap\\s)/#\\1/' /etc/fstab; fi",
 		"if [ \"$(awk 'NR > 1' /proc/swaps | wc -l)\" -ne 0 ]; then " +
-			"echo 'kgenesis: swap is still active, and kubelet refuses to start with it on. " +
+			"echo 'kg: swap is still active, and kubelet refuses to start with it on. " +
 			"Disable it on this host and retry.' >&2; cat /proc/swaps >&2; exit 1; fi",
 
 		// Both may be built into the kernel or already loaded, in which case
@@ -443,7 +443,7 @@ func nodePreflightCommands() []string {
 		// explicit check a host missing bridge netfilter comes up looking healthy
 		// while kube-proxy's rules never see pod traffic.
 		"test -e /proc/sys/net/bridge/bridge-nf-call-iptables || " +
-			"{ echo 'kgenesis: br_netfilter is unavailable, so bridged traffic would bypass kube-proxy. " +
+			"{ echo 'kg: br_netfilter is unavailable, so bridged traffic would bypass kube-proxy. " +
 			"Load the module on this host and retry.' >&2; exit 1; }",
 
 		"printf 'net.bridge.bridge-nf-call-iptables=1\\nnet.bridge.bridge-nf-call-ip6tables=1\\nnet.ipv4.ip_forward=1\\n' > /etc/sysctl.d/99-kgenesis.conf",

@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// CanonicalName is the command. kgenesis is the project; kg is what it installs
+// CanonicalName is the command. kg is the project; kg is what it installs
 // and what every hint it prints says, so there is one name to type.
 const CanonicalName = "kg"
 
@@ -48,7 +48,7 @@ const hintColumn = 30
 
 // pad right-pads an invocation so the descriptions beside it line up. The width
 // is fixed rather than derived from the binary name, so the same help text reads
-// identically whether it came from `kgenesis` or `kg`; an invocation longer than
+// identically whether it came from `kg` or `kg`; an invocation longer than
 // the column simply gets a single space.
 func pad(invocation string) string {
 	if len(invocation) >= hintColumn {

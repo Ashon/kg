@@ -35,7 +35,7 @@ func isURL(s string) bool {
 	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
 }
 
-// Load reads, defaults and validates kgenesis.yaml.
+// Load reads, defaults and validates the genesis configuration.
 func Load(path string) (*Config, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -48,7 +48,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	// Relative paths in the config are resolved against the config file, not the
-	// working directory, so `kgenesis -c ../lab/kgenesis.yaml` keeps working.
+	// working directory, so `kg -c ../lab/kg.yaml` keeps working.
 	cfg.resolvePaths(filepath.Dir(path))
 	cfg.ApplyDefaults()
 

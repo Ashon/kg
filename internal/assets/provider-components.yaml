@@ -70,7 +70,7 @@ spec:
               controlPlaneEndpoint:
                 description: |-
                   controlPlaneEndpoint is the address the workload cluster's API server is
-                  reachable at. kgenesis does not allocate it; it must already be routable to
+                  reachable at. kg does not allocate it; it must already be routable to
                   the control plane hosts (typically a kube-vip managed VIP).
                 minProperties: 1
                 properties:
@@ -593,7 +593,7 @@ spec:
             properties:
               address:
                 description: |-
-                  address is the IP address or DNS name kgenesis connects to over SSH. It is
+                  address is the IP address or DNS name kg connects to over SSH. It is
                   also used as the node's advertised address unless the bootstrap data
                   overrides it.
                 minLength: 1

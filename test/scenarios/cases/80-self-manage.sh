@@ -44,7 +44,7 @@ scenario_self_manage() {
   local counts
   counts="$(KUBECONFIG="${WORKLOAD}" kubectl get -n lab \
     hosts,hostmachines,hostclusters,hostmachinetemplates --no-headers 2>/dev/null | wc -l | tr -d ' ')"
-  ((counts > 0)) || fail "the cluster has none of the kgenesis objects it was handed"
+  ((counts > 0)) || fail "the cluster has none of the kg objects it was handed"
   KUBECONFIG="${WORKLOAD}" kubectl get -n lab hosts,hostmachines,hostclusters --no-headers |
     awk '{print $1}' | sed 's/^/    /'
 

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Ashon
 # SPDX-License-Identifier: MIT
 
-# Build the kgenesis infrastructure provider.
+# Build the kg infrastructure provider.
 FROM golang:1.27 AS build
 
 WORKDIR /workspace

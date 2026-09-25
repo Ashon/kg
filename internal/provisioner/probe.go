@@ -23,7 +23,7 @@ type SystemInfo struct {
 	ContainerRuntime string
 
 	// KubeadmVersion is what the host will actually build a cluster with.
-	// kgenesis does not install it, so a host carrying a different minor than
+	// kg does not install it, so a host carrying a different minor than
 	// the configuration asks for fails in the middle of a rollout unless it is
 	// noticed here.
 	KubeadmVersion string

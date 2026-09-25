@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Ashon
 // SPDX-License-Identifier: MIT
 
-// Command manager runs the kgenesis infrastructure provider controllers.
+// Command manager runs the kg infrastructure provider controllers.
 //
 // It is deployed into the bootstrap cluster by `kg init` and moves to the
 // workload cluster with `kg eject`, alongside the Cluster API controllers.
@@ -29,7 +29,7 @@ import (
 
 // managerName is what this binary calls itself in a version line. The CLI is
 // kg; this is the controller it installs.
-const managerName = "kgenesis-manager"
+const managerName = "kg-manager"
 
 var scheme = runtime.NewScheme()
 
@@ -111,7 +111,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("Starting the kgenesis infrastructure provider", "version", version.String(managerName))
+	setupLog.Info("Starting the kg infrastructure provider", "version", version.String(managerName))
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "Manager exited with an error")
 		os.Exit(1)

@@ -4,7 +4,7 @@
 #
 # A self-managed cluster rolled to a newer Kubernetes.
 #
-# kgenesis does not manage the kubeadm and kubelet on a host: it bootstraps
+# kg does not manage the kubeadm and kubelet on a host: it bootstraps
 # machines that are already provisioned, so the host decides which Kubernetes it
 # can build. KubeadmControlPlane upgrades by replacing machines, which means the
 # new version has to be on the machines before the rollout reaches them. Putting
@@ -130,7 +130,7 @@ scenario_upgrade() {
   nodes_all_at_version "${WORKLOAD}" "${from}"
   info "every node is on ${from}"
 
-  # kgenesis does not do this, and says so. A fleet upgrades its machines the way
+  # kg does not do this, and says so. A fleet upgrades its machines the way
   # it built them, which here is apt.
   # Upgrading the packages under a running cluster is a shortcut. A fleet would
   # replace the machine, which is what the rollout below does; doing it in place

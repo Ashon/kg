@@ -60,7 +60,7 @@ jobs:
           sudo sysctl -w fs.inotify.max_user_watches=1048576
 
       # /proc/swaps is not namespaced, so a container playing the part of a host
-      # sees the runner's swapfile and kubelet refuses to start. kgenesis cannot
+      # sees the runner's swapfile and kubelet refuses to start. kg cannot
       # turn that off from inside: the swapfile is not in the container's mount
       # namespace. On a real machine it is, and the bootstrap handles it there.
       - name: Disable swap on the runner

@@ -14,7 +14,7 @@
 # VIP, so a scenario cannot come to depend on one of them.
 
 readonly SUBNET="192.168.105"
-readonly NET_NAME="kgenesis"
+readonly NET_NAME="kg"
 readonly BRIDGE="virbr-kg"
 # kind puts its node on this docker network, and the provider reaches the hosts
 # from inside that node.
@@ -44,7 +44,7 @@ WORKER_VCPUS="${WORKER_VCPUS:-1}"
 
 # Images live on the runner's large ephemeral disk; the root filesystem has
 # nowhere near enough room for a base image and an overlay per machine.
-IMAGE_DIR="${IMAGE_DIR:-/mnt/kgenesis-images}"
+IMAGE_DIR="${IMAGE_DIR:-/mnt/kg-images}"
 BASE_IMAGE_URL="${BASE_IMAGE_URL:-https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img}"
 
 # A minor below the one the upgrade case rolls to, because the machines have to
