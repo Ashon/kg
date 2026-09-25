@@ -38,7 +38,7 @@ mkdir -p "${WORKDIR}"
 readonly KEY="${WORKDIR}/id_ed25519"
 readonly CONFIG="${WORKDIR}/kgenesis.yaml"
 readonly STATE="${WORKDIR}/state"
-readonly KG="${ROOT}/bin/kgenesis"
+readonly KG="${ROOT}/bin/kg"
 readonly WORKLOAD="${STATE}/lab.kubeconfig"
 
 # shellcheck source=test/scenarios/drivers/lima.sh

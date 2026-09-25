@@ -196,7 +196,7 @@ type BootstrapConfig struct {
 	NodeImage string `json:"nodeImage,omitempty"`
 
 	// capiVersion pins the Cluster API core, bootstrap and control plane provider
-	// version installed by `kgenesis init`. Empty uses the latest release
+	// version installed by `kg init`. Empty uses the latest release
 	// clusterctl resolves.
 	CAPIVersion string `json:"capiVersion,omitempty"`
 

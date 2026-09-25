@@ -23,7 +23,6 @@ VERSION="${1:-${VERSION:-}}"
 IMAGE="${IMAGE:-ghcr.io/ashon/kgenesis}"
 readonly MANAGER_IMAGE="${IMAGE}:${VERSION}"
 readonly DIST="${ROOT}/dist"
-readonly SHORT_NAME="kg"
 
 GIT_COMMIT="${GIT_COMMIT:-$(git -C "${ROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 # Taken from the commit rather than the clock, so building the same commit twice
@@ -56,11 +55,8 @@ for platform in ${PLATFORMS}; do
       -X github.com/Ashon/kgenesis/internal/version.GitCommit=${GIT_COMMIT} \
       -X github.com/Ashon/kgenesis/internal/version.BuildDate=${BUILD_DATE} \
       -X github.com/Ashon/kgenesis/internal/version.Image=${MANAGER_IMAGE}" \
-    -o "${stage}/kgenesis" ./cmd/kgenesis
+    -o "${stage}/kg" ./cmd/kg
 
-  # The alias is a symlink rather than a second copy, the same as an install
-  # from source: one binary, and the two can never drift apart.
-  ln -sf kgenesis "${stage}/${SHORT_NAME}"
   cp "${ROOT}/LICENSE" "${ROOT}/README.md" "${stage}/"
 
   tar -czf "${DIST}/$(basename "${stage}").tar.gz" -C "${DIST}/stage" "$(basename "${stage}")"

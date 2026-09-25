@@ -89,7 +89,7 @@ The usual sequence:
 	}
 
 	cmd.PersistentFlags().StringVarP(&opts.ConfigPath, "config", "c", defaultConfigPath(),
-		"Path to the kgenesis configuration file (also KGENESIS_CONFIG)")
+		"Path to the kgenesis configuration file (also KG_CONFIG)")
 	cmd.PersistentFlags().StringVar(&opts.StateDir, "state-dir", defaultState,
 		"Directory for the kubeconfigs kgenesis manages")
 	cmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false,
@@ -120,11 +120,16 @@ const ConfigDir = ".kg"
 const ConfigFile = "config"
 
 // defaultConfigPath resolves the configuration to use when --config is not
-// given. KGENESIS_CONFIG comes first, so a fleet can be selected for a shell
+// given. The environment comes first, so a fleet can be selected for a shell
 // without repeating the flag, the same way KUBECONFIG works.
+//
+// KGENESIS_CONFIG is still read, after KG_CONFIG, so a shell set up before the
+// command was named kg keeps working.
 func defaultConfigPath() string {
-	if fromEnv := os.Getenv("KGENESIS_CONFIG"); fromEnv != "" {
-		return fromEnv
+	for _, key := range []string{"KG_CONFIG", "KGENESIS_CONFIG"} {
+		if fromEnv := os.Getenv(key); fromEnv != "" {
+			return fromEnv
+		}
 	}
 
 	home, err := os.UserHomeDir()

@@ -3,8 +3,8 @@
 
 // Command manager runs the kgenesis infrastructure provider controllers.
 //
-// It is deployed into the bootstrap cluster by `kgenesis init` and moves to the
-// workload cluster with `kgenesis pivot`, alongside the Cluster API controllers.
+// It is deployed into the bootstrap cluster by `kg init` and moves to the
+// workload cluster with `kg eject`, alongside the Cluster API controllers.
 package main
 
 import (
@@ -26,6 +26,10 @@ import (
 	kgcontroller "github.com/Ashon/kgenesis/internal/controller"
 	"github.com/Ashon/kgenesis/internal/version"
 )
+
+// managerName is what this binary calls itself in a version line. The CLI is
+// kg; this is the controller it installs.
+const managerName = "kgenesis-manager"
 
 var scheme = runtime.NewScheme()
 
@@ -59,7 +63,7 @@ func main() {
 	flag.Parse()
 
 	if showVersion {
-		fmt.Println(version.String())
+		fmt.Println(version.String(managerName))
 		return
 	}
 
@@ -107,7 +111,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("Starting the kgenesis infrastructure provider", "version", version.String())
+	setupLog.Info("Starting the kgenesis infrastructure provider", "version", version.String(managerName))
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "Manager exited with an error")
 		os.Exit(1)

@@ -25,8 +25,11 @@ var (
 	Image = "ghcr.io/ashon/kgenesis:dev"
 )
 
-// String is a one line summary suitable for `--version`.
-func String() string {
+// String is a one line summary suitable for `--version`. The name is the
+// binary's own: kgenesis ships a CLI and a controller, and a version line that
+// named the project rather than the thing printing it would leave a reader
+// guessing which of the two they are looking at.
+func String(name string) string {
 	commit := GitCommit
 	if commit == "" {
 		commit = vcsRevision()
@@ -35,8 +38,8 @@ func String() string {
 		commit = "unknown"
 	}
 
-	out := fmt.Sprintf("kgenesis %s (commit %s, %s/%s, %s)",
-		Version, commit, runtime.GOOS, runtime.GOARCH, runtime.Version())
+	out := fmt.Sprintf("%s %s (commit %s, %s/%s, %s)",
+		name, Version, commit, runtime.GOOS, runtime.GOARCH, runtime.Version())
 	if BuildDate != "" {
 		out += ", built " + BuildDate
 	}

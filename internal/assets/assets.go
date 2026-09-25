@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 // Package assets embeds the kgenesis provider manifests in the CLI, so
-// `kgenesis init` can install the provider without reaching a manifest registry.
+// `kg init` can install the provider without reaching a manifest registry.
 // Regenerate with `make components` after changing anything under config/.
 package assets
 

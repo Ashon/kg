@@ -92,8 +92,7 @@ jobs:
             printf 'os=$(uname -s | tr A-Z a-z)\n'
             printf 'arch=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/)\n'
             printf 'tar -xzf kgenesis_%s_${os}_${arch}.tar.gz\n' "${{ steps.version.outputs.version }}"
-            printf 'sudo install kgenesis_*/kgenesis /usr/local/bin/\n'
-            printf 'sudo ln -sf kgenesis /usr/local/bin/kg\n'
+            printf 'sudo install kgenesis_*/kg /usr/local/bin/kg\n'
             printf '```\n\n'
             printf 'The controller image is `ghcr.io/ashon/kgenesis:%s`, which is what `kg init`\n' \
               "${{ steps.version.outputs.version }}"

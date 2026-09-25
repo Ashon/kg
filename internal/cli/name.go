@@ -9,12 +9,9 @@ import (
 	"strings"
 )
 
-// CanonicalName is the command's full name. The short alias `kg` is installed
-// alongside it as a symlink.
-const CanonicalName = "kgenesis"
-
-// ShortName is the alias installed next to the canonical binary.
-const ShortName = "kg"
+// CanonicalName is the command. kgenesis is the project; kg is what it installs
+// and what every hint it prints says, so there is one name to type.
+const CanonicalName = "kg"
 
 // binaryName is how this process was invoked, without any directory or .exe
 // suffix. Every hint the CLI prints is built from it, so a command suggested by

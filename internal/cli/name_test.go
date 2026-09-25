@@ -16,11 +16,12 @@ func TestResolveBinaryName(t *testing.T) {
 	t.Cleanup(func() { os.Args = original })
 
 	cases := map[string]struct{ argv0, want string }{
-		"canonical":       {"kgenesis", CanonicalName},
-		"short alias":     {"kg", ShortName},
-		"absolute path":   {"/usr/local/bin/kg", ShortName},
-		"go build output": {"/tmp/go-build123/b001/exe/kgenesis", CanonicalName},
-		"windows suffix":  {"kg.exe", ShortName},
+		"canonical":     {"kg", CanonicalName},
+		"absolute path": {"/usr/local/bin/kg", CanonicalName},
+		// A binary someone renamed is still the name they type.
+		"renamed":         {"kg-lab", "kg-lab"},
+		"go build output": {"/tmp/go-build123/b001/exe/kg", CanonicalName},
+		"windows suffix":  {"kg.exe", CanonicalName},
 		// A test binary's name is not something an operator would ever type.
 		"test binary": {"/tmp/cli.test", CanonicalName},
 		"empty argv0": {"", CanonicalName},
@@ -36,8 +37,8 @@ func TestResolveBinaryName(t *testing.T) {
 	}
 }
 
-func TestPadAlignsRegardlessOfName(t *testing.T) {
-	short := pad(ShortName + " cluster create")
+func TestPadLinesUpTheHintColumn(t *testing.T) {
+	short := pad(CanonicalName + " init")
 	long := pad(CanonicalName + " cluster create")
 
 	if len(short) != len(long) {
@@ -53,8 +54,7 @@ func TestPadAlignsRegardlessOfName(t *testing.T) {
 }
 
 // Every invocation the CLI suggests has to be built from the name the operator
-// typed. A literal "kgenesis cluster create" in a hint sends a `kg` user to look
-// up a command they do not have.
+// typed, so a renamed binary still suggests commands that exist.
 func TestNoHardcodedInvocationsInHints(t *testing.T) {
 	// Subcommands as they appear at the top level.
 	subcommands := []string{
@@ -88,22 +88,22 @@ func TestNoHardcodedInvocationsInHints(t *testing.T) {
 }
 
 func TestDefaultConfigPath(t *testing.T) {
-	original, hadEnv := os.LookupEnv("KGENESIS_CONFIG")
+	original, hadEnv := os.LookupEnv("KG_CONFIG")
 	t.Cleanup(func() {
 		if hadEnv {
-			os.Setenv("KGENESIS_CONFIG", original)
+			os.Setenv("KG_CONFIG", original)
 		} else {
-			os.Unsetenv("KGENESIS_CONFIG")
+			os.Unsetenv("KG_CONFIG")
 		}
 	})
 
-	// KGENESIS_CONFIG selects a fleet for a shell without repeating --config.
-	os.Setenv("KGENESIS_CONFIG", "/somewhere/lab.yaml")
+	// KG_CONFIG selects a fleet for a shell without repeating --config.
+	os.Setenv("KG_CONFIG", "/somewhere/lab.yaml")
 	if got := defaultConfigPath(); got != "/somewhere/lab.yaml" {
-		t.Errorf("with KGENESIS_CONFIG set: got %q", got)
+		t.Errorf("with KG_CONFIG set: got %q", got)
 	}
 
-	os.Unsetenv("KGENESIS_CONFIG")
+	os.Unsetenv("KG_CONFIG")
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skip("no home directory")

@@ -766,8 +766,8 @@ spec:
                   policy.
                 type: string
               phase:
-                description: phase is a one-word summary for humans and for `kgenesis
-                  inventory`.
+                description: phase is a one-word summary for humans and for `kg inventory
+                  list`.
                 type: string
               systemInfo:
                 description: systemInfo is what the last successful probe reported.

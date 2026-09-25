@@ -140,7 +140,7 @@ func (r *HostMachineReconciler) reconcileNormal(
 	}
 	if host == nil {
 		const message = "No Available host matches the selector; " +
-			"add hosts to the inventory, or check `kgenesis inventory list` for unreachable ones"
+			"add hosts to the inventory, or check `kg inventory list` for unreachable ones"
 		setCondition(&hostMachine.Status.Conditions, infrav1.HostMachineHostClaimedCondition,
 			metav1.ConditionFalse, infrav1.ReasonNoMatchingHost, message, hostMachine.Generation)
 		// Mirror the reason onto Provisioned: leaving the earlier

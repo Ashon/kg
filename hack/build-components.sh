@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Ashon
 # SPDX-License-Identifier: MIT
 
-# Assembles the provider components that `kgenesis init` applies, and embeds them
+# Assembles the provider components that `kg init` applies, and embeds them
 # in the CLI so a genesis node needs no network access to a manifest repository.
 set -euo pipefail
 

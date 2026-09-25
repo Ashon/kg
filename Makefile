@@ -22,11 +22,6 @@ LDFLAGS := -s -w \
 
 BIN := bin
 
-# The CLI is installed under its full name with a short alias beside it. The
-# alias is a symlink rather than a second build: one binary, and the two can
-# never drift apart.
-SHORT_NAME := kg
-
 ##@ General
 
 .PHONY: help
@@ -83,10 +78,9 @@ verify: generate fmt ## Fail when generated files or license headers are out of 
 ##@ Build
 
 .PHONY: build
-build: ## Build the kgenesis CLI into bin/, with the kg alias beside it
+build: ## Build the kg CLI into bin/
 	mkdir -p $(BIN)
-	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN)/kgenesis ./cmd/kgenesis
-	ln -sf kgenesis $(BIN)/$(SHORT_NAME)
+	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN)/kg ./cmd/kg
 
 .PHONY: manager
 manager: ## Build the provider manager binary into bin/
@@ -94,12 +88,11 @@ manager: ## Build the provider manager binary into bin/
 	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN)/manager ./cmd/manager
 
 .PHONY: install
-install: ## Install the CLI and the kg alias into GOBIN
-	go install -trimpath -ldflags "$(LDFLAGS)" ./cmd/kgenesis
+install: ## Install the kg CLI into GOBIN
+	go install -trimpath -ldflags "$(LDFLAGS)" ./cmd/kg
 	@target="$$(go env GOBIN)"; \
 	if [ -z "$$target" ]; then target="$$(go env GOPATH)/bin"; fi; \
-	ln -sf kgenesis "$$target/$(SHORT_NAME)"; \
-	echo "Installed $$target/kgenesis and $$target/$(SHORT_NAME)"
+	echo "Installed $$target/kg"
 
 .PHONY: docker-build
 docker-build: ## Build the provider container image

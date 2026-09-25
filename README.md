@@ -123,9 +123,9 @@ else's name:
 
 ## Getting started
 
-The CLI installs as `kgenesis` with `kg` as a short alias beside it. The two are
-the same binary, and every hint the CLI prints uses whichever name you typed, so
-you can paste its suggestions straight back.
+The CLI installs as `kg`. kgenesis is the project; `kg` is what you type, and
+every hint the CLI prints is built from it, so you can paste its suggestions
+straight back.
 
 ```console
 $ kg config init            # write a starter ~/.kg/config
@@ -423,7 +423,7 @@ and says how to send a particular machine first or hold a host out of the pool.
 
 ```console
 $ make help            # list targets
-$ make build           # bin/kgenesis and the bin/kg alias
+$ make build           # bin/kg
 $ make install         # both into GOBIN
 $ make test            # unit tests
 $ make e2e             # build a real cluster and pivot it
@@ -513,7 +513,7 @@ access to a manifest registry.
 
 ```
 api/v1alpha1/        Host, HostCluster, HostMachine, HostMachineTemplate
-cmd/kgenesis/        the CLI (installed as kgenesis, aliased to kg)
+cmd/kg/              the CLI (installed as kg)
 cmd/manager/         the provider controllers
 internal/cli/        command tree
 internal/cloudinit/  CABPK cloud-config to bash

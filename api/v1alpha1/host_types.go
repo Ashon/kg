@@ -103,7 +103,7 @@ type HostSystemInfo struct {
 
 // HostStatus reports the observed state of a Host.
 type HostStatus struct {
-	// phase is a one-word summary for humans and for `kgenesis inventory`.
+	// phase is a one-word summary for humans and for `kg inventory list`.
 	// +optional
 	Phase HostPhase `json:"phase,omitempty"`
 
