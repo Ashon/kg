@@ -38,7 +38,15 @@ REPORT_DIR="${KG_SCENARIO_REPORT_DIR:-${ROOT}/.artifacts/e2e/${DRIVER}-$(date +%
 mkdir -p "${REPORT_DIR}"
 REPORT_DIR="$(cd "${REPORT_DIR}" && pwd)"
 readonly REPORT_DIR
-exec > >(tee "${REPORT_DIR}/run.log") 2>&1
+# Run the scenario shell as a child of the logging pipeline. A process
+# substitution here becomes a job that Linux bash's bare `wait` never finishes.
+if [[ "${KG_SCENARIO_LOGGED:-0}" != 1 ]]; then
+  source "${ROOT}/test/scenarios/logging.sh"
+  run_logged "${REPORT_DIR}/run.log" env KG_SCENARIO_LOGGED=1 \
+    KG_SCENARIO_WORKDIR="${WORKDIR}" KG_SCENARIO_REPORT_DIR="${REPORT_DIR}" \
+    bash "${BASH_SOURCE[0]}" "$@"
+  exit $?
+fi
 : > "${REPORT_DIR}/results.tsv"
 active_scenario=setup
 scenario_started="$(date +%s)"

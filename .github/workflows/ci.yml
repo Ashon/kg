@@ -44,6 +44,9 @@ jobs:
       - name: Test
         run: go test ./... -race -count=1
 
+      - name: Check scenario logging
+        run: timeout 10s bash test/scenarios/logging_test.sh
+
       - name: Build
         run: make build
 
